@@ -294,3 +294,36 @@ for ($i=1; $i -le 3; $i++) {
 **작성일**: 2025-12-01  
 **버전**: 1.0  
 **작성자**: Antigravity AI Assistant
+
+---
+
+## 2026-02-13 업데이트 내역
+
+### 반영 커밋
+- `6b8deb6`
+- `Refactor collector flow and harden security/output handling`
+
+### 핵심 반영 사항
+1. 메인 스크립트 안정화
+- `system_information_collector_for_windows.ps1` 문법 오류 정리 및 실행 흐름 재구성
+- `try/finally`로 Mutex 해제 보장
+- Debug 성능 요약 출력 로직 정리
+
+2. 공통 유틸 개선
+- `lib/Common.ps1`에서 Mutex 생성/중복 실행 검증 방식 개선
+- Debug 로그 파일 기록 시 예외 처리 추가
+- 수집 단계 성공/실패 로그 메시지 정리
+
+3. 보안 강화
+- `lib/collectors/SecurityCollector.ps1` 임시 파일 생성/정리 로직 강화
+- `secedit` 결과 파일 정리 보장(`finally`)
+
+4. 출력/리포트 안전성 개선
+- `lib/OutputManager.ps1` 실행마다 `generatedFiles` 초기화
+- 출력 디렉터리 존재 검증 추가
+- `lib/reporters/HtmlReporter.ps1` 카테고리/속성명 HTML 인코딩
+- `lib/reporters/EventLogReporter.ps1` 로그 이름 기반 파일명 정규화 및 HTML 인코딩
+
+### 검증
+- 전체 `*.ps1` 파서 검사 통과 (`Parse OK`)
+- 원격 반영 완료 (`main -> origin/main`)
