@@ -19,6 +19,14 @@
 ```
 **출력**: 상세한 성능 추적 정보 + 요약 테이블
 
+### 병렬 모드 실행 (-Parallel)
+```powershell
+.\system_information_collector_for_windows.ps1 -Parallel -DebugMode
+```
+**특징**:
+- 각 모듈이 별도의 스레드에서 동시에 실행되므로 전체 `TOTAL` 시간은 단축되지만, 개별 모듈의 소요 시간 합계는 전체 시간보다 클 수 있습니다.
+- 로그 메시지가 인터리빙(뒤섞임)될 수 있으나, 최종 요약 테이블은 정확하게 집계됩니다.
+
 ---
 
 ## 📊 출력 예시
@@ -29,17 +37,17 @@
 [DEBUG] Debug Mode Enabled: Logging to C:\...\debug_log_20251201144958.txt
 [DEBUG] Performance tracking enabled
 
-[1/8 Hardware] Starting collection...
-[1/8 Hardware] Memory before: 125.45MB
-[1/8 Hardware] Executing script block...
-[1/8 Hardware] Memory after: 142.78MB (Delta: 17.33MB)
-[1/8 Hardware] ✓ Completed in 00:00:03.456 - Type: object, Items: 11
+[1/11 Hardware] Starting collection...
+[1/11 Hardware] Memory before: 125.45MB
+[1/11 Hardware] Executing script block...
+[1/11 Hardware] Memory after: 142.78MB (Delta: 17.33MB)
+[1/11 Hardware] ✓ Completed in 00:00:03.456 - Type: object, Items: 11
 
-[2/8 Network] Starting collection...
-[2/8 Network] Memory before: 142.78MB
-[2/8 Network] Executing script block...
-[2/8 Network] Memory after: 158.92MB (Delta: 16.14MB)
-[2/8 Network] ✓ Completed in 00:00:02.789 - Type: object, Items: 9
+[2/11 Network] Starting collection...
+[2/11 Network] Memory before: 142.78MB
+[2/11 Network] Executing script block...
+[2/11 Network] Memory after: 158.92MB (Delta: 16.14MB)
+[2/11 Network] ✓ Completed in 00:00:02.789 - Type: object, Items: 9
 
 ... (계속) ...
 
@@ -49,14 +57,17 @@ Total Execution Time: 00:00:45.678
 ╔════════════════════════════════════════════════════════════════╗
 ║              PERFORMANCE SUMMARY (Debug Mode)                 ║
 ╠════════════════════════════════════════════════════════════════╣
-║ 1/8 Hardware                     3,456ms  7.6% ███
-║ 2/8 Network                      2,789ms  6.1% ███
-║ 3/8 OS & Config                  4,123ms  9.0% ████
-║ 4/8 Services                     5,678ms 12.4% ██████
-║ 5/8 Performance                  3,234ms  7.1% ███
-║ 6/8 Logs                        12,456ms 27.3% █████████████
-║ 7/8 Security                     8,901ms 19.5% █████████
-║ 8/8 High Availability            5,041ms 11.0% █████
+║ 1/11 Hardware                    3,456ms  7.6% ███
+║ 2/11 Network                     2,789ms  6.1% ███
+║ 3/11 OS & Config                 4,123ms  9.0% ████
+║ 4/11 Virtualization              3,456ms  7.6% ███
+║ 5/11 Services                    5,678ms 12.4% ██████
+║ 6/11 Performance                 3,234ms  7.1% ███
+║ 7/11 Logs                       12,456ms 27.3% █████████████
+║ 8/11 Security                    8,901ms 19.5% █████████
+║ 9/11 Inventory                   2,500ms  5.5% ██
+║ 10/11 ActiveDirectory             2,123ms  4.6% ██
+║ 11/11 High Availability           5,041ms 11.0% █████
 ╠════════════════════════════════════════════════════════════════╣
 ║ TOTAL                           45,678ms 100.0%
 ╚════════════════════════════════════════════════════════════════╝
@@ -71,7 +82,7 @@ Total Execution Time: 00:00:45.678
 ### 컬럼 설명
 | 컬럼 | 설명 | 예시 |
 |------|------|------|
-| **Name** | 수집 단계 이름 | `1/8 Hardware` |
+| **Name** | 수집 단계 이름 | `1/11 Hardware` |
 | **Duration (ms)** | 실행 시간 (밀리초) | `3,456ms` |
 | **Percentage** | 전체 시간 대비 비율 | `7.6%` |
 | **Bar** | 시각적 막대 그래프 | `███` |
@@ -88,7 +99,7 @@ Total Execution Time: 00:00:45.678
 ### 1. 병목 지점 식별
 가장 많은 시간을 소요하는 단계를 확인:
 ```
-║ 6/8 Logs                        12,456ms 27.3% █████████████  ← 병목!
+║ 6/10 Logs                       12,456ms 27.3% █████████████  ← 병목!
 ```
 → 로그 수집이 전체 시간의 27%를 차지
 
@@ -101,8 +112,8 @@ Total Execution Time: 00:00:45.678
 
 ### 3. 단계별 메모리 증가 확인
 ```
-[1/8 Hardware] Memory after: 142.78MB (Delta: 17.33MB)
-[2/8 Network] Memory after: 158.92MB (Delta: 16.14MB)
+[1/11 Hardware] Memory after: 142.78MB (Delta: 17.33MB)
+[2/11 Network] Memory after: 158.92MB (Delta: 16.14MB)
 ```
 → 각 단계에서 얼마나 메모리를 사용하는지 추적
 
@@ -119,11 +130,11 @@ debug_log_yyyyMMddHHmmss.txt
 ```
 [2025-12-01 14:49:58.123] [Info] [Start] Starting System Environment Analysis...
 [2025-12-01 14:49:58.234] [Debug] [DEBUG] Performance tracking enabled
-[2025-12-01 14:49:58.345] [Info] [1/8 Hardware] Starting collection...
-[2025-12-01 14:49:58.456] [Debug] [1/8 Hardware] Memory before: 125.45MB
-[2025-12-01 14:49:58.567] [Debug] [1/8 Hardware] Executing script block...
-[2025-12-01 14:50:01.901] [Debug] [1/8 Hardware] Memory after: 142.78MB (Delta: 17.33MB)
-[2025-12-01 14:50:01.912] [Info] [1/8 Hardware] ✓ Completed in 00:00:03.456 - Type: object, Items: 11
+[2025-12-01 14:49:58.345] [Info] [1/11 Hardware] Starting collection...
+[2025-12-01 14:49:58.456] [Debug] [1/11 Hardware] Memory before: 125.45MB
+[2025-12-01 14:49:58.567] [Debug] [1/11 Hardware] Executing script block...
+[2025-12-01 14:50:01.901] [Debug] [1/11 Hardware] Memory after: 142.78MB (Delta: 17.33MB)
+[2025-12-01 14:50:01.912] [Info] [1/11 Hardware] ✓ Completed in 00:00:03.456 - Type: object, Items: 11
 ...
 ```
 
@@ -153,7 +164,7 @@ Get-Content debug_log_*.txt | Select-String "Completed" |
 
 ### 병목 지점별 최적화 방법
 
-#### 로그 수집이 느린 경우 (6/8 Logs)
+#### 로그 수집이 느린 경우 (7/11 Logs)
 ```powershell
 # lib/collectors/LogCollector.ps1 수정
 # 이벤트 수 줄이기
@@ -163,13 +174,13 @@ Get-Content debug_log_*.txt | Select-String "Completed" |
 StartTime = (Get-Date).AddDays(-7)  →  AddDays(-3)
 ```
 
-#### 서비스 수집이 느린 경우 (4/8 Services)
+#### 서비스 수집이 느린 경우 (5/11 Services)
 ```powershell
 # 불필요한 속성 제외
 Get-CimInstance Win32_Service | Select-Object Name, State, StartMode
 ```
 
-#### 보안 정보 수집이 느린 경우 (7/8 Security)
+#### 보안 정보 수집이 느린 경우 (8/11 Security)
 ```powershell
 # 방화벽 규칙 수 제한
 Get-NetFirewallRule | Select-Object -First 100
@@ -289,11 +300,31 @@ for ($i=1; $i -le 3; $i++) {
 # → 일정하면 정상, 계속 증가하면 누수 의심
 ```
 
+
+
 ---
 
-**작성일**: 2025-12-01  
-**버전**: 1.0  
-**작성자**: Antigravity AI Assistant
+### 시나리오 2: 메모리 누수 점검 (Memory Leak Check)
+1. 디버그 모드에서 반복 실행합니다.
+   ```powershell
+   for ($i=1; $i -le 3; $i++) {
+       .\system_information_collector_for_windows.ps1 -DebugMode
+       Start-Sleep -Seconds 5
+   }
+   ```
+2. 각 실행당 메모리 증가량(Delta)을 비교합니다.
+   - 일정하게 유지됨 = 정상
+   - 지속적으로 증가함 = 누수 의심
+
+---
+
+## 📅 2026-02-14 업데이트 내역
+
+### 핵심 로직 및 보안 반영
+1. **클래스 기반 프로바이더 모델 도입**: `BaseCollector` 상속을 통한 수집 인터페이스 표준화 및 자원 관리 최적화.
+2. **플러그인 보안 검증 엔진**: `lib/collectors/` 내 스크립트 로드 시 **Authenticode 서명 확인** 단계 필수 적용.
+3. **범용 데이터 마스킹 (DLP)**: `Get-MaskedValue` 엔진을 통해 전 구간 민감 정보 자동 은닉화 기술 적용.
+4. **암호학적 강화**: AES-256 암호화 시 PBKDF2 반복 횟수 100,000회 상향 및 `ZeroFreeBSTR`을 이용한 중요 메모리 즉시 소거.
 
 ---
 

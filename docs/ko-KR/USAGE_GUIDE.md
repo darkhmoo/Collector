@@ -1,4 +1,4 @@
-# 📘 다중 출력 형식 사용 가이드
+﻿# 📘 다중 출력 형식 사용 가이드
 
 ## 개요
 시스템 정보 수집 스크립트는 이제 **JSON**, **HTML**, **CSV** 형식으로 결과를 출력할 수 있으며, 이벤트 로그는 **HTML** 또는 **CSV** 형식으로 별도 저장할 수 있습니다.
@@ -49,6 +49,18 @@
 
 ---
 
+### 특정 모듈만 실행 (예: Hardware, Network)
+```powershell
+.\system_information_collector_for_windows.ps1 -Modules Hardware,Network
+```
+
+### 결과 저장 경로 지정 (자동 생성 포함)
+```powershell
+.\system_information_collector_for_windows.ps1 -OutputPath C:\Diagnostics
+```
+
+---
+
 ### 모든 형식 생성 (ALL 키워드)
 ```powershell
 .\system_information_collector_for_windows.ps1 -OutputFormat ALL
@@ -65,6 +77,9 @@
 - `result_yyyyMMddHHmmss_Logs.csv`
 - `result_yyyyMMddHHmmss_Security.csv`
 - `result_yyyyMMddHHmmss_HighAvailability.csv`
+- `result_yyyyMMddHHmmss_ActiveDirectory.csv`
+- `result_yyyyMMddHHmmss_Virtualization.csv`
+- `result_yyyyMMddHHmmss_Inventory.csv`
 
 ---
 
@@ -123,9 +138,24 @@
   - `Log_Application.csv`
   - `Log_Security.csv`
 
-### ZIP 압축
-모든 생성된 파일은 자동으로 압축됩니다:
-- `result_yyyyMMddHHmmss.zip`
+- `result_yyyyMMddHHmmss.zip` (사용자가 `-Compress` 지정 시 생성)
+
+### 🔐 보안 암호화 (AES-256)
+`-Encrypt` 옵션 사용 시 모든 결과 파일은 암호화됩니다:
+- **AES-256 (PBKDF2 10만 회)**: 강력한 키 유도 기술을 적용하여 무차별 대입 공격을 방어합니다.
+- `result_yyyyMMddHHmmss.json.aes`
+- `result_yyyyMMddHHmmss.html.aes`
+- 암호화된 파일은 전용 도구(`utils/Decrypt-Results.ps1`)로만 복구 가능합니다.
+
+### 🛡️ 스크립트 무결성 및 신뢰 (Authenticode)
+본 도구는 인가되지 않은 스크립트 실행을 방지하기 위해 디지털 서명을 활용합니다:
+1. **플러그인 보안**: `lib/collectors/` 폴더 내의 모든 스크립트는 디지털 서명이 되어 있어야 로드됩니다.
+2. **신뢰 구축**: 처음 사용 시 `utils/Setup-Security.ps1`을 실행하여 자가 서명 인증서를 생성하고 신뢰할 수 있는 게시자로 등록하십시오.
+   ```powershell
+   # 관리자 권한으로 실행
+   .\utils\Setup-Security.ps1
+   ```
+3. **서명 확인**: 서명이 올바르지 않은 스크립트 발견 시 보안 경고(`Security Warning`)와 함께 로드가 거부됩니다.
 
 ---
 
@@ -163,13 +193,19 @@
 - JSON만 생성하여 파일 크기 최소화
 - 스크립트나 API로 자동 처리
 
-### 시나리오 4: 감사/컴플라이언스
+### 시나리오 4: 대기 시간 단축 (병렬 수집)
+```powershell
+.\system_information_collector_for_windows.ps1 -Parallel -OutputFormat ALL
+```
+- 모든 모듈을 동시에 수집
+- 대규모 서버나 네트워크 지연이 있는 환경에서 권장
+
+### 시나리오 5: 감사 및 컴플라이언스
 ```powershell
 .\system_information_collector_for_windows.ps1 -OutputFormat ALL -DebugMode
 ```
-- 모든 형식으로 증거 보관
-- 디버그 로그 포함
-- 중간 파일 보존
+- 모든 형식의 보고서 증적 확보
+- 디버그 로그 포함 및 중간 파일 보존
 
 ### 시나리오 5: 여러 서버 비교 분석
 ```powershell
@@ -178,6 +214,21 @@
 
 # CSV 파일들을 모아서 엑셀에서 비교 분석
 ```
+
+### 시나리오 6: 보안 환경 (데이터 암호화)
+```powershell
+.\system_information_collector_for_windows.ps1 -Encrypt -Compress
+```
+- 실행 시 키 입력을 요청받음 (화면 숨김)
+- 암호화된 파일들이 ZIP 내부에 저장됨
+
+### 시나리오 7: AD 및 가상화 환경 정밀 진단
+```powershell
+.\system_information_collector_for_windows.ps1 -OutputFormat HTML
+```
+- **액티브 디렉터리 (AD)**: 도메인 컨트롤러 상태, 복제 파트너, 주요 객체 수 확인
+- **가상화 (Hyper-V/Container)**: 호스트 리소스, VM 상태, 컨테이너 런타임 확인
+*참고: 해당 모듈(RSAT-AD-PowerShell, Hyper-V) 및 서버 역할이 구성된 환경에서만 데이터가 수집됩니다.*
 
 ---
 
@@ -227,6 +278,37 @@
 **예제**:
 ```powershell
 -DebugMode
+```
+
+### -Modules
+**타입**: `string[]` (배열)
+**기본값**: `ALL`
+**허용값**: `Hardware`, `Network`, `OSConfig`, `Inventory`, `Virtualization`, `Services`, `Performance`, `Logs`, `Security`, `ActiveDirectory`, `HighAvailability`, `ALL`
+
+**효과**:
+- 지정된 모듈의 데이터만 수집합니다.
+- `ALL`이 포함되면 모든 모듈을 수집합니다.
+
+### -Compress
+**타입**: `Switch`  
+**기본값**: `$false`
+
+**효과**:
+- 생성된 모든 결과 파일을 하나의 ZIP 아카이브로 압축합니다.
+- 암호화가 활성화된 경우 암호화된 파일(.aes)들을 압축합니다.
+
+### -Encrypt
+**타입**: `Switch`  
+**기본값**: `$false`
+
+**효과**:
+- **AES-256** 알고리즘을 사용하여 개별 리포트 파일을 암호화합니다.
+- 실행 시 비밀번호 입력을 위한 보안 프롬프트가 나타납니다.
+
+**예제**:
+```powershell
+# 암호화 및 압축 실행
+-Encrypt -Compress
 ```
 
 ---

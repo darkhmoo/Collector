@@ -3,63 +3,116 @@
 <#
 .SYNOPSIS
     Safely executes Get-CimInstance with error handling and projection.
+.PARAMETER className
+    The name of the WMI class to query.
+.PARAMETER namespace
+    The WMI namespace (default: root\cimv2).
+.PARAMETER filter
+    WQL filter string.
+.PARAMETER selectProperties
+    Properties to select (default: *).
+.PARAMETER excludeProperties
+    Properties to exclude (default: Cim*).
+.PARAMETER whereBlock
+    Optional scriptblock for client-side filtering.
 #>
 function Get-CimSafe {
+    [CmdletBinding()]
     param(
-        [string]$ClassName,
-        [string]$Namespace = "root\cimv2",
-        [string]$Filter,
-        [string[]]$SelectProperties = "*",
-        [string[]]$ExcludeProperties = "Cim*",
-        [scriptblock]$WhereBlock
+        [Parameter(Mandatory = $true)]
+        [string]$className,
+        
+        [Parameter(Mandatory = $false)]
+        [string]$namespace = "root\cimv2",
+        
+        [Parameter(Mandatory = $false)]
+        [string]$filter,
+        
+        [Parameter(Mandatory = $false)]
+        [string[]]$selectProperties = "*",
+        
+        [Parameter(Mandatory = $false)]
+        [string[]]$excludeProperties = "Cim*",
+        
+        [Parameter(Mandatory = $false)]
+        [scriptblock]$whereBlock
     )
 
     try {
-        $params = @{
-            ClassName   = $ClassName
-            Namespace   = $Namespace
+        $cimParams = @{
+            ClassName   = $className
+            Namespace   = $namespace
             ErrorAction = "Stop"
         }
-        if ($Filter) { $params.Filter = $Filter }
+        if ($filter) { $cimParams.Filter = $filter }
 
-        $cmd = Get-CimInstance @params
-        if ($WhereBlock) {
-            $cmd = $cmd | Where-Object $WhereBlock
+        $instances = Get-CimInstance @cimParams
+        if ($whereBlock) {
+            $instances = $instances | Where-Object $whereBlock
         }
 
-        $cmd | Select-Object -Property $SelectProperties -ExcludeProperty $ExcludeProperties
+        $instances | Select-Object -Property $selectProperties -ExcludeProperty $excludeProperties
     }
     catch {
-        return "Error: $_"
+        Write-Log -message "    ! Get-CimSafe failed for ${className}: $($_.Exception.Message)" -color Yellow -level Debug
+        return @() # Return empty array to keep reporter logic stable (Audit Fix)
     }
 }
 
 <#
 .SYNOPSIS
     Writes output to console and optionally to a debug log file.
+.PARAMETER message
+    The log message.
+.PARAMETER color
+    Foreground color for console output.
+.PARAMETER level
+    Log level (Debug, Info, Warning, Error).
 #>
 function Write-Log {
+    [CmdletBinding()]
     param(
-        [string]$Message,
-        [ConsoleColor]$Color = "White",
+        [Parameter(Mandatory = $true)]
+        [string]$message,
+        
+        [Parameter(Mandatory = $false)]
+        [ConsoleColor]$color = "White",
+        
+        [Parameter(Mandatory = $false)]
         [ValidateSet("Debug", "Info", "Warning", "Error")]
-        [string]$Level = "Info"
+        [string]$level = "Info"
     )
 
-    if ($Level -eq "Debug" -and -not $Script:DebugMode) {
+    # Honor DebugMode flag from calling script
+    if ($level -eq "Debug" -and -not $script:DebugMode) {
         return
     }
 
-    Write-Host $Message -ForegroundColor $Color
+    # Console Output (using Write-Host for colored output, or Write-Information for streams)
+    Write-Host $message -ForegroundColor $color
 
-    if ($Script:DebugMode -and $Script:DebugLogFile) {
-        $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss.fff"
-        $logEntry = "[$timestamp] [$Level] $Message"
+    # File Logging
+    if ($script:DebugMode -and $script:DebugLogFile) {
+        $timeStamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss.fff"
+        $logEntry = "[$timeStamp] [$level] $message"
         try {
-            Add-Content -Path $Script:DebugLogFile -Value $logEntry -Encoding UTF8 -ErrorAction Stop
+            # Concurrency protection for parallel logging
+            $retryCount = 0
+            $success = $false
+            while (-not $success -and $retryCount -lt 3) {
+                try {
+                    Add-Content -Path $script:DebugLogFile -Value $logEntry -Encoding UTF8 -ErrorAction Stop
+                    $success = $true
+                }
+                catch {
+                    $retryCount++
+                    Start-Sleep -Milliseconds (10 * $retryCount)
+                }
+            }
         }
         catch {
-            Write-Warning "Failed to write debug log file '$Script:DebugLogFile': $($_.Exception.Message)"
+            # If it still fails, we don't want to crash the collection
+            # Write-Warning may also fail if redirected, so we use a silent approach or just continue
         }
     }
 }
@@ -69,8 +122,13 @@ function Write-Log {
     Checks if the script is running with Administrator privileges.
 #>
 function Assert-AdminPrivileges {
+    [CmdletBinding()]
+    param()
+
     $currentPrincipal = New-Object Security.Principal.WindowsPrincipal([Security.Principal.WindowsIdentity]::GetCurrent())
-    if (-not $currentPrincipal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
+    $isAdmin = $currentPrincipal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
+    
+    if (-not $isAdmin) {
         Write-Warning "Not running as Administrator. Some data collection may fail."
         exit 1
     }
@@ -81,20 +139,44 @@ function Assert-AdminPrivileges {
     Verifies system prerequisites before execution.
 #>
 function Assert-Prerequisites {
-    $minPSVersion = [version]"5.1"
-    if ($PSVersionTable.PSVersion -lt $minPSVersion) {
-        throw "CRITICAL ERROR: PowerShell $minPSVersion or higher is required."
+    [CmdletBinding()]
+    param()
+
+    $minPsVersion = [version]"5.1"
+    if ($PSVersionTable.PSVersion -lt $minPsVersion) {
+        throw "CRITICAL ERROR: PowerShell $minPsVersion or higher is required."
     }
 
     $systemDriveLetter = $env:SystemDrive.Substring(0, 1)
-    $drive = Get-PSDrive -Name $systemDriveLetter
-    if ($drive.Free -lt 50MB) {
-        throw "CRITICAL ERROR: Free disk space is less than 50MB."
+    $systemDrive = Get-PSDrive -Name $systemDriveLetter
+    if ($systemDrive.Free -lt 50MB) {
+        throw "CRITICAL ERROR: Free disk space on $($systemDriveLetter): is less than 50MB."
     }
 
-    if ((Get-CimInstance Win32_OperatingSystem).ProductType -eq 1) {
+    $os = Get-CimInstance -ClassName Win32_OperatingSystem -ErrorAction SilentlyContinue
+    if ($os -and $os.ProductType -eq 1) {
         Write-Warning "This script is designed for Windows Server. Client OS detected."
     }
+}
+
+<#
+.SYNOPSIS
+    Universal data masking for sensitive strings.
+#>
+function Get-MaskedValue {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$inputString,
+        [string[]]$keywords = @("password", "secret", "key", "token", "credential", "auth", "connectionstring")
+    )
+    if ([string]::IsNullOrWhiteSpace($inputString)) { return $inputString }
+    
+    foreach ($word in $keywords) {
+        if ($inputString -like "*$word*" -or $inputString -like "*$($word.ToUpper())*") {
+            return "******** [Masked for Security]"
+        }
+    }
+    return $inputString
 }
 
 <#
@@ -102,12 +184,16 @@ function Assert-Prerequisites {
     Ensures singleton execution using a named Mutex.
 #>
 function Get-ScriptMutex {
+    [CmdletBinding()]
+    param()
+
     $mutexName = "Global\SystemInfoCollector_Mutex"
-    $createdNew = $false
-    $mutex = New-Object System.Threading.Mutex($true, $mutexName, [ref]$createdNew)
-    if (-not $createdNew) {
+    $isCreatedNew = $false
+    $mutex = New-Object System.Threading.Mutex($true, $mutexName, [ref]$isCreatedNew)
+    
+    if (-not $isCreatedNew) {
         $mutex.Dispose()
-        throw "CRITICAL ERROR: Script is already running."
+        throw "CRITICAL ERROR: Script is already running (Mutex locked)."
     }
 
     return $mutex
@@ -116,29 +202,37 @@ function Get-ScriptMutex {
 <#
 .SYNOPSIS
     Executes collection blocks with timing, memory snapshot, and error handling.
+.PARAMETER taskName
+    The name of the collection task.
+.PARAMETER collectionBlock
+    The scriptblock to execute.
 #>
 function Invoke-Collection {
+    [CmdletBinding()]
     param(
-        [string]$Name,
-        [scriptblock]$ScriptBlock
+        [Parameter(Mandatory = $true)]
+        [string]$taskName,
+        
+        [Parameter(Mandatory = $true)]
+        [scriptblock]$collectionBlock
     )
 
-    Write-Log "[$Name] Starting collection..." -Color Cyan -Level Info
+    Write-Log -message "[$taskName] Starting collection..." -color Cyan -level Info
 
     $memBefore = 0
     $memAfter = 0
-    if ($Script:DebugMode) {
-        $process = Get-Process -Id $PID
-        $memBefore = [math]::Round($process.WorkingSet64 / 1MB, 2)
-        Write-Log "[$Name] Memory before: ${memBefore}MB" -Color DarkGray -Level Debug
+    if ($script:DebugMode) {
+        $currentProcess = Get-Process -Id $PID
+        $memBefore = [math]::Round($currentProcess.WorkingSet64 / 1MB, 2)
+        Write-Log -message "[$taskName] Memory before: ${memBefore}MB" -color DarkGray -level Debug
     }
 
-    $sw = [System.Diagnostics.Stopwatch]::StartNew()
+    $stopWatch = [System.Diagnostics.Stopwatch]::StartNew()
 
     try {
-        Write-Log "[$Name] Executing script block..." -Color DarkGray -Level Debug
-        $result = & $ScriptBlock
-        $sw.Stop()
+        Write-Log -message "[$taskName] Executing core collection..." -color DarkGray -level Debug
+        $result = & $collectionBlock
+        $stopWatch.Stop()
 
         $itemCount = 0
         $itemType = "unknown"
@@ -166,19 +260,19 @@ function Invoke-Collection {
             $itemType = $result.GetType().Name
         }
 
-        if ($Script:DebugMode) {
-            $process = Get-Process -Id $PID
-            $memAfter = [math]::Round($process.WorkingSet64 / 1MB, 2)
+        if ($script:DebugMode) {
+            $currentProcess = Get-Process -Id $PID
+            $memAfter = [math]::Round($currentProcess.WorkingSet64 / 1MB, 2)
             $memDelta = [math]::Round($memAfter - $memBefore, 2)
-            Write-Log "[$Name] Memory after: ${memAfter}MB (Delta: ${memDelta}MB)" -Color DarkGray -Level Debug
+            Write-Log -message "[$taskName] Memory after: ${memAfter}MB (Delta: ${memDelta}MB)" -color DarkGray -level Debug
 
             if ($null -eq $script:StepTimings) {
                 $script:StepTimings = @()
             }
             $script:StepTimings += [PSCustomObject]@{
-                Name              = $Name
-                DurationMs        = $sw.ElapsedMilliseconds
-                DurationFormatted = $sw.Elapsed.ToString('hh\:mm\:ss\.fff')
+                Name              = $taskName
+                DurationMs        = $stopWatch.ElapsedMilliseconds
+                DurationFormatted = $stopWatch.Elapsed.ToString('hh\:mm\:ss\.fff')
                 ItemCount         = $itemCount
                 ItemType          = $itemType
                 MemoryBefore      = $memBefore
@@ -187,32 +281,207 @@ function Invoke-Collection {
             }
         }
 
-        Write-Log "[$Name] Completed in $($sw.Elapsed.ToString('hh\:mm\:ss\.fff')) - Type: $itemType, Items: $itemCount" -Color Green -Level Info
+        Write-Log -message "[$taskName] Completed in $($stopWatch.Elapsed.ToString('hh\:mm\:ss\.fff')) - Type: $itemType, Items: $itemCount" -color Green -level Info
         return $result
     }
     catch {
-        $sw.Stop()
-        Write-Log "[$Name] Failed after $($sw.Elapsed.ToString('hh\:mm\:ss\.fff')): $_" -Color Red -Level Error
+        $stopWatch.Stop()
+        $errorMessage = "[$taskName] Failed after $($stopWatch.Elapsed.ToString('hh\:mm\:ss\.fff')): $($_.Exception.Message)"
+        Write-Log -message $errorMessage -color Red -level Error
 
-        if ($Script:DebugMode) {
-            Write-Log "[$Name] Stack trace: $($_.ScriptStackTrace)" -Color DarkRed -Level Debug
-            Write-Log "[$Name] Exception type: $($_.Exception.GetType().FullName)" -Color DarkRed -Level Debug
-
-            if ($null -eq $script:StepTimings) {
-                $script:StepTimings = @()
-            }
-            $script:StepTimings += [PSCustomObject]@{
-                Name              = "$Name (FAILED)"
-                DurationMs        = $sw.ElapsedMilliseconds
-                DurationFormatted = $sw.Elapsed.ToString('hh\:mm\:ss\.fff')
-                ItemCount         = 0
-                ItemType          = "error"
-                MemoryBefore      = $memBefore
-                MemoryAfter       = $memAfter
-                MemoryDelta       = 0
-            }
+        if ($script:DebugMode) {
+            Write-Log -message "[$taskName] Full Exception: $_" -color Red -level Debug
+            Write-Log -message "[$taskName] Stack trace: $($_.ScriptStackTrace)" -color DarkRed -level Debug
         }
 
         return "Error: $_"
     }
 }
+
+<#
+.SYNOPSIS
+    Executes multiple collection tasks in parallel using RunspacePool.
+.PARAMETER tasks
+    An array of PSCustomObjects, each containing 'Key', 'Name' and 'Block'.
+.PARAMETER scriptRoot
+    The root path of the script for loading libraries.
+#>
+function Invoke-ParallelCollection {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)]
+        [PSCustomObject[]]$tasks,
+        
+        [Parameter(Mandatory = $true)]
+        [string]$scriptRoot
+    )
+
+    Write-Log -message "[Parallel] Starting parallel collection for $($tasks.Count) modules..." -color Cyan -level Info
+    
+    $results = [ordered]@{}
+    $powershells = @()
+    
+    # 1. RunspacePool Setup
+    $maxThreads = [math]::Min($tasks.Count, [Environment]::ProcessorCount * 2)
+    $runspacePool = [runspacefactory]::CreateRunspacePool(1, $maxThreads)
+    $runspacePool.Open()
+
+    try {
+        # 2. Launch Tasks
+        foreach ($task in $tasks) {
+            $ps = [powershell]::Create().AddScript({
+                    param($taskName, $collectionBlock, $rootPath, $debugMode, $debugLog)
+                
+                    # Initialize runspace-local state to avoid leaking or missing data
+                    $script:StepTimings = @()
+                    $script:generatedFiles = @()
+                
+                    # Each runspace is a clean environment, must re-load libraries
+                    $script:DebugMode = $debugMode
+                    $script:DebugLogFile = $debugLog
+                    . (Join-Path $rootPath "lib\Common.ps1")
+                    . (Join-Path $rootPath "lib\Collectors.ps1")
+
+                    # Execute Invoke-Collection to maintain logging and timing consistency
+                    $result = Invoke-Collection -taskName $taskName -collectionBlock $collectionBlock
+                    # Return result along with runspace-local state for aggregation
+                    return [PSCustomObject]@{
+                        Data           = $result
+                        StepTimings    = $script:StepTimings
+                        GeneratedFiles = $script:generatedFiles
+                    }
+                }).AddArgument($task.Name).AddArgument($task.Block).AddArgument($scriptRoot).AddArgument($script:DebugMode).AddArgument($script:DebugLogFile)
+            
+            $ps.RunspacePool = $runspacePool
+            $handle = $ps.BeginInvoke()
+            
+            $powershells += [PSCustomObject]@{
+                Name       = $task.Name
+                Key        = $task.Key
+                Handle     = $handle
+                PowerShell = $ps
+            }
+        }
+
+        # 3. Wait and Collect Results
+        foreach ($taskItem in $powershells) {
+            Write-Log -message "[Parallel] Waiting for $($taskItem.Name)..." -color DarkGray -level Debug
+            
+            # Wait for handle with timeout protection (300s)
+            $waitCount = 0
+            While (-not $taskItem.Handle.IsCompleted -and $waitCount -lt 3000) { 
+                Start-Sleep -Milliseconds 100 
+                $waitCount++
+            }
+            
+            if ($taskItem.Handle.IsCompleted) {
+                $results[$taskItem.Key] = $taskItem.PowerShell.EndInvoke($taskItem.Handle)[0]
+                Write-Log -message "[Parallel] $($taskItem.Name) completed successfully." -color DarkGray -level Debug
+            }
+            else {
+                $results[$taskItem.Key] = "Error: Task timed out after 300s"
+                Write-Log -message "[Parallel] $($taskItem.Name) timed out or failed to complete." -color Red -level Error
+                try { $taskItem.PowerShell.Stop() } catch {}
+            }
+            
+            # Explicit disposal for each task to free resources immediately
+            try { $taskItem.PowerShell.Dispose() } catch {}
+        }
+    }
+    catch {
+        Write-Error "Parallel execution engine encountered a fatal error: $_"
+        throw $_
+    }
+    finally {
+        if ($runspacePool) { 
+            try { $runspacePool.Close() } catch {}
+            try { $runspacePool.Dispose() } catch {}
+        }
+        # Audit Fix: Explicitly trigger GC to free up memory from closed runspaces
+        [System.GC]::Collect()
+        [System.GC]::WaitForPendingFinalizers()
+    }
+
+    Write-Log -message "[Parallel] Parallel collection complete." -color Green -level Info
+    return $results
+}
+
+<#
+.SYNOPSIS
+    Automatically finds and opens the document matching the system locale ($PSCulture).
+.PARAMETER docName
+    The name of the document file (e.g., USAGE_GUIDE.md).
+.PARAMETER scriptRoot
+    The project root path.
+#>
+function Open-LocalizedDoc {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$docName,
+        
+        [Parameter(Mandatory = $true)]
+        [string]$scriptRoot
+    )
+
+    $currentLocale = $PSCulture # e.g., "ko-KR", "en-US"
+    $docPath = Join-Path -Path $scriptRoot -ChildPath "docs\$currentLocale\$docName"
+
+    # 1. Check for system locale folder
+    if (Test-Path -Path $docPath) {
+        Write-Log -message "Locale-matched document found: $currentLocale" -color Cyan
+        Invoke-Item -Path $docPath
+        return
+    }
+
+    # 2. Fallback: Check for Korean documentation
+    $koPath = Join-Path -Path $scriptRoot -ChildPath "docs\ko-KR\$docName"
+    if (Test-Path -Path $koPath) {
+        Write-Log -message "Falling back to ko-KR document." -color Yellow
+        Invoke-Item -Path $koPath
+        return
+    }
+
+    # 3. Fallback: Check for English documentation
+    $enPath = Join-Path -Path $scriptRoot -ChildPath "docs\en-US\$docName"
+    if (Test-Path -Path $enPath) {
+        Write-Log -message "Falling back to en-US document." -color Yellow
+        Invoke-Item -Path $enPath
+        return
+    }
+
+    Write-Error "Document not found: $docName"
+}
+
+# SIG # Begin signature block
+# MIIFiwYJKoZIhvcNAQcCoIIFfDCCBXgCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
+# gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUqqTD++OkS3o7NSFTzgi+9qUE
+# SmugggMcMIIDGDCCAgCgAwIBAgIQGWEUqQpfT6JPYbwYRk6SXjANBgkqhkiG9w0B
+# AQsFADAkMSIwIAYDVQQDDBlDb2xsZWN0b3ItSW50ZXJuYWwtU2lnbmVyMB4XDTI2
+# MDIxMzE2MzExMloXDTI3MDIxMzE2NTExMlowJDEiMCAGA1UEAwwZQ29sbGVjdG9y
+# LUludGVybmFsLVNpZ25lcjCCASIwDQYJKoZIhvcNAQEBBQADggEPADCCAQoCggEB
+# ANvUNS+3ZOqv6/Wjx4K6mUvzpMqoAAToxWCryus4grdBQG7zH2M/2en1b750HzGs
+# Xhr2macyH+9rVzsYHYF5llyxw08XQ6X36vMbJEVoR+5KOf/zJrA2c480Rdc2m1BH
+# BDNkhKC7/P4pCaYYi+sxe68Ind6KYjIIL8wRMFRy77FZRiL3iUINYK3yMEnSrkfK
+# DVtAM26Urogj/zfmozn05f3q9nk7wnlSAzBFgYrqZ0LAClDEiqrN5W2S2Tz465uN
+# jkLiBJ3R+fJf6duLybme+A6uqmmVRTukL8/uUB19fJw7lx1OfmIBoJQ0p6myy8hS
+# Wz/kgKl2drA3emG4e6BpckECAwEAAaNGMEQwDgYDVR0PAQH/BAQDAgeAMBMGA1Ud
+# JQQMMAoGCCsGAQUFBwMDMB0GA1UdDgQWBBTAAzQigManKpFUSzB+/+hZM7g9AjAN
+# BgkqhkiG9w0BAQsFAAOCAQEAA9jrmfv21FtuqvRvy4gz7aUuHI/o0dtaia/3QYKI
+# Q04YkCTVMP63j/d2ISNM1Xwn8qnRBr93jO0hI+lpf9ELW2hnJwyaHqhJzQsBvBM6
+# CowvqaPa+S9+9Hc7sY2aVGWcSXJwXcqy6pzkOHuzPouTk0hfsekRRivafQYH5Xeh
+# Ui7+fQmPLrZmLQPOLx8mAMaLsPUYDAE8j99aa2ulg6KZYO7F0zy0Veqjs+8pSIIE
+# V0H2+ApOKEbZP4NWUeaFq9vycZwURZPjYrNSckbJ5M9jTANbNaMs2ZAEZ+HrpPSt
+# wvUWonVftmZpq3dJ2ClpXnDwUz/yYEJ1dzUT9YDZDDbOVzGCAdkwggHVAgEBMDgw
+# JDEiMCAGA1UEAwwZQ29sbGVjdG9yLUludGVybmFsLVNpZ25lcgIQGWEUqQpfT6JP
+# YbwYRk6SXjAJBgUrDgMCGgUAoHgwGAYKKwYBBAGCNwIBDDEKMAigAoAAoQKAADAZ
+# BgkqhkiG9w0BCQMxDAYKKwYBBAGCNwIBBDAcBgorBgEEAYI3AgELMQ4wDAYKKwYB
+# BAGCNwIBFTAjBgkqhkiG9w0BCQQxFgQUmJsL1ncSPKHU3HVex+8w3CvW9+8wDQYJ
+# KoZIhvcNAQEBBQAEggEAsRBhUABF5O3bDo/bn/vK0QjAOKgn+bMaV+i7ZO2kQUmW
+# 5Hy9G9hHakHm51XNR0IvcRfwVu3L2/USXQW/47TKjydr6ZlMgzXBe/aVXauQg83H
+# Si58iSbnx9UiaypcFeZGcXp7z64Y7KFTD7tTT8keDVYKkggr2yvjpO6oF+o3hdTp
+# C8zhWgSBEM7PpBQHeGL7gj9kQG7PWK9EOq3yzc6XS18tPJ8ohgebPOWkSfa7RNFB
+# Hh/8XZL+tDgPAeqlnfpiVyYHqcYGTGVvj5Lpaq+eXnzfiUAxmido3WcK743antcD
+# UEsixVf0Ghb+6ZmOYZ8At38+GCg7V6PEBY61ls6RPA==
+# SIG # End signature block

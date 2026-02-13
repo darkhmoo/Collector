@@ -1,33 +1,38 @@
+# --- Architectural Foundation: Class Definitions ---
+
 <#
 .SYNOPSIS
-    Reporters Loader
-.DESCRIPTION
-    Loads all reporter modules from the 'lib/reporters' directory.
+    Base class for all collection providers. Ensuring interface consistency.
 #>
+class BaseCollector {
+    [string]$Name
+    [string]$Category
+    [bool]$IsEnabled = $true
 
-$reportersDir = Join-Path -Path $PSScriptRoot -ChildPath "reporters"
-
-if (Test-Path $reportersDir) {
-    $reporterFiles = Get-ChildItem -Path $reportersDir -Filter "*.ps1"
-    foreach ($file in $reporterFiles) {
-        try {
-            . $file.FullName
-            # Write-Log "Loaded reporter: $($file.Name)" -Color DarkGray -Level Debug
-        }
-        catch {
-            Write-Error "Failed to load reporter '$($file.Name)': $_"
-        }
+    BaseCollector([string]$name, [string]$category) {
+        $this.Name = $name
+        $this.Category = $category
     }
-}
-else {
-    Write-Error "Reporters directory not found: $reportersDir"
+
+    # Abstract-like method (must be overridden)
+    [PSObject] Collect() {
+        throw "Method 'Collect' must be implemented in inherited class."
+    }
+
+    [void] LogStart() {
+        Write-Log -message "[$($this.Name)] Starting collection phase..." -color Cyan -level Info
+    }
+
+    [void] LogEnd([long]$ms) {
+        Write-Log -message "[$($this.Name)] Completed in $($ms)ms." -color Green -level Info
+    }
 }
 
 # SIG # Begin signature block
 # MIIFiwYJKoZIhvcNAQcCoIIFfDCCBXgCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUr5cYA1fr1UqiJhZESdFbh27V
-# ueWgggMcMIIDGDCCAgCgAwIBAgIQGWEUqQpfT6JPYbwYRk6SXjANBgkqhkiG9w0B
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQU9EnW2zh/TgTPJFtp4XslBxhr
+# ATWgggMcMIIDGDCCAgCgAwIBAgIQGWEUqQpfT6JPYbwYRk6SXjANBgkqhkiG9w0B
 # AQsFADAkMSIwIAYDVQQDDBlDb2xsZWN0b3ItSW50ZXJuYWwtU2lnbmVyMB4XDTI2
 # MDIxMzE2MzExMloXDTI3MDIxMzE2NTExMlowJDEiMCAGA1UEAwwZQ29sbGVjdG9y
 # LUludGVybmFsLVNpZ25lcjCCASIwDQYJKoZIhvcNAQEBBQADggEPADCCAQoCggEB
@@ -47,11 +52,11 @@ else {
 # JDEiMCAGA1UEAwwZQ29sbGVjdG9yLUludGVybmFsLVNpZ25lcgIQGWEUqQpfT6JP
 # YbwYRk6SXjAJBgUrDgMCGgUAoHgwGAYKKwYBBAGCNwIBDDEKMAigAoAAoQKAADAZ
 # BgkqhkiG9w0BCQMxDAYKKwYBBAGCNwIBBDAcBgorBgEEAYI3AgELMQ4wDAYKKwYB
-# BAGCNwIBFTAjBgkqhkiG9w0BCQQxFgQUIeVkXhIrt2CbV/ClGPUfKSVNS3IwDQYJ
-# KoZIhvcNAQEBBQAEggEAEBtoldquRq6zZq66SxTwGw2LFVjBcVS8k0l0ZW9I4amh
-# 6vh3BBEIPDahieua+YM+6Kumn+46VJoNrd4KtFrhyKirf5Y4YhM8CalSTp8qvNI+
-# tIYxRbyOLVIEgBDZBTa5hQTzj505zlJnfHLBjOxt32gwaf1iKGC7SBkifTIt7duL
-# pmTKlgYVYYVUPvCUPNwbhaPQPGy6Eb8dDEDLMeovgxEWZSge090kvEljLqugb+g/
-# 9ZYLYJurYXArdDVRSGdMVtCSMTWyjC4Elm0qKzccTnvKqBPkxFKOlRzt7hbOS5RI
-# Xbrf47z9OnJdBCba9OE7LR/eplQJx8e1HDrpJ8+F2Q==
+# BAGCNwIBFTAjBgkqhkiG9w0BCQQxFgQUlmt34wPQcFgQAa9Y/Rs6nYYXU+wwDQYJ
+# KoZIhvcNAQEBBQAEggEAoqg+bkx22BWFhPCEDZdbXg3o1l/LptBr2TujqUOuRTl3
+# FuNWT4w3Q717OSUWsADewUNAUsM/ULgiJSFB1gRc+8/7sGuBNEYOMRNqG7AKQUDk
+# MrotR+1C7KZaroJrtJf/l9Skogd6uH1gPJf4uV58lKTk3fP5WYL9UEhYDozIXfI8
+# v50lNwhQ95uXKtyLsDnsVs2KLZDhtdTUfXnri22HJ2lcBn9v57Dc4t8lVtU8m7Ac
+# awJcbR51Mlk5IUa6/gSYXRDAAMY6Gk4EHXb75CGoEJ4ikVXRcSZR496KiPtwO1pX
+# Z87ylszHsBXzkF6XCKY+7Q7lQiRIIT6c4e6E1eLRXQ==
 # SIG # End signature block

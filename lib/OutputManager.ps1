@@ -5,98 +5,302 @@
     Handles saving, compressing, and cleaning up report files.
 #>
 
+<#
+.SYNOPSIS
+    Saves and compresses audit results into various formats.
+.PARAMETER auditReport
+    The central data object containing all collected info.
+.PARAMETER outputFormat
+    Desired output types (JSON, HTML, CSV).
+.PARAMETER eventLogFormat
+    Format for event logs (HTML, CSV).
+.PARAMETER outputDirectory
+    Destination folder.
+.PARAMETER isDebugMode
+    Whether to keep intermediate files and log extra info.
+.PARAMETER zipResults
+    Whether to compress all generated files into a ZIP archive.
+.PARAMETER encryptionKey
+    SecureString containing the key for AES-256 encryption.
+#>
 function Save-Results {
+    [CmdletBinding(SupportsShouldProcess = $true)]
     param(
         [Parameter(Mandatory = $true)]
-        [PSCustomObject]$AuditReport,
+        [PSCustomObject]$auditReport,
         
         [Parameter(Mandatory = $true)]
-        [string[]]$OutputFormat,
+        [string[]]$outputFormat,
         
         [Parameter(Mandatory = $true)]
-        [string]$EventLogFormat,
+        [string]$eventLogFormat,
         
         [Parameter(Mandatory = $true)]
-        [string]$OutputDirectory,
+        [string]$outputDirectory,
         
         [Parameter(Mandatory = $true)]
-        [bool]$DebugMode
+        [bool]$isDebugMode,
+        
+        [Parameter(Mandatory = $true)]
+        [bool]$zipResults,
+        
+        [Parameter(Mandatory = $false)]
+        [SecureString]$encryptionKey
     )
     
-    $timestamp = Get-Date -Format "yyyyMMddHHmmss"
-    $jsonFileName = "result_$timestamp.json"
-    $jsonFilePath = Join-Path -Path $OutputDirectory -ChildPath $jsonFileName
-    $htmlFileName = "result_$timestamp.html"
-    $htmlFilePath = Join-Path -Path $OutputDirectory -ChildPath $htmlFileName
-    $csvFileName = "result_$timestamp.csv"
-    $csvFilePath = Join-Path -Path $OutputDirectory -ChildPath $csvFileName
-    $zipFileName = "result_$timestamp.zip"
-    $zipFilePath = Join-Path -Path $OutputDirectory -ChildPath $zipFileName
+    $timeStamp = Get-Date -Format "yyyyMMddHHmmss"
+    $jsonFileName = "result_$timeStamp.json"
+    $jsonFilePath = Join-Path -Path $outputDirectory -ChildPath $jsonFileName
+    $htmlFileName = "result_$timeStamp.html"
+    $htmlFilePath = Join-Path -Path $outputDirectory -ChildPath $htmlFileName
+    $csvFileName = "result_$timeStamp.csv"
+    $csvFilePath = Join-Path -Path $outputDirectory -ChildPath $csvFileName
+    $zipFileName = "result_$timeStamp.zip"
+    $zipFilePath = Join-Path -Path $outputDirectory -ChildPath $zipFileName
     
-    # Always reset generated file list for this run to avoid carrying stale paths.
+    # Reset tracking list
     $script:generatedFiles = @()
 
-    if (-not (Test-Path -Path $OutputDirectory -PathType Container)) {
-        throw "Output directory does not exist: $OutputDirectory"
+    if (-not (Test-Path -path $outputDirectory -pathType Container)) {
+        throw "Output directory does not exist: $outputDirectory"
     }
     
     try {
-        Write-Log "`n[Output] Generating reports in formats: $($OutputFormat -join ', ')" -Color Cyan -Level Info
+        Write-Log -message "`n[Output] Preparing reports in: $($outputFormat -join ', ')" -color Cyan -level Info
         
-        # 1. Generate Event Log Files
-        if ($AuditReport.Logs.EventLogs) {
-            Export-EventLogFiles -EventLogs $AuditReport.Logs.EventLogs -Format $EventLogFormat -OutputDir $OutputDirectory
+        # 1. Event Logs
+        if ($auditReport.Logs.EventLogs) {
+            if ($PSCmdlet.ShouldProcess("All Event Logs to $outputDirectory", "Export as $eventLogFormat")) {
+                Export-EventLogFiles -EventLogs $auditReport.Logs.EventLogs -Format $eventLogFormat -OutputDir $outputDirectory
+            }
         }
 
-        # 2. Save Main JSON
-        if ($OutputFormat -contains "JSON") {
-            $AuditReport | ConvertTo-Json -Depth 5 | Set-Content -Path $jsonFilePath -Encoding UTF8
-            Write-Log "[Save] JSON saved: $jsonFileName" -Color Yellow -Level Info
-            $script:generatedFiles += $jsonFilePath
+        # 2. Main JSON
+        if ($outputFormat -contains "JSON") {
+            Write-Log -message "  - Saving JSON report..." -color Gray
+            try {
+                $auditReport | ConvertTo-Json -Depth 10 -Compress -ErrorAction Stop | Set-Content -Path $jsonFilePath -Encoding UTF8
+                Write-Log -message "[Save] JSON saved: $jsonFileName" -color Yellow -level Info
+                $script:generatedFiles += $jsonFilePath
+            }
+            catch {
+                Write-Log -message "    ! JSON serialization failed, attempting lower depth: $_" -color Yellow -level Warning
+                # Attempt with lower depth if the first fails (e.g., due to circular references at higher depth)
+                $auditReport | ConvertTo-Json -Depth 5 -Compress | Set-Content -Path $jsonFilePath -Encoding UTF8
+                Write-Log -message "[Save] JSON saved (with reduced depth): $jsonFileName" -color Yellow -level Info
+                $script:generatedFiles += $jsonFilePath
+            }
         }
 
-        # 3. Save HTML Report
-        if ($OutputFormat -contains "HTML") {
-            Write-Log "[Save] Generating HTML Report..." -Color Cyan -Level Info
-            ConvertTo-HtmlReport -InputObject $AuditReport -OutputPath $htmlFilePath
-            Write-Log "[Save] HTML saved: $htmlFileName" -Color Yellow -Level Info
-            $script:generatedFiles += $htmlFilePath
+        # 3. HTML Report
+        if ($outputFormat -contains "HTML") {
+            if ($PSCmdlet.ShouldProcess($htmlFilePath, "Generate HTML Report")) {
+                Write-Log -message "[Save] Generating HTML Report..." -color Cyan -level Info
+                ConvertTo-HtmlReport -InputObject $auditReport -OutputPath $htmlFilePath
+                Write-Log -message "[Save] HTML saved: $htmlFileName" -color Yellow -level Info
+                $script:generatedFiles += $htmlFilePath
+            }
         }
 
-        # 4. Save CSV Report
-        if ($OutputFormat -contains "CSV") {
-            Write-Log "[Save] Generating CSV Report..." -Color Cyan -Level Info
-            ConvertTo-CsvReport -InputObject $AuditReport -OutputPath $csvFilePath
-            Write-Log "[Save] CSV saved: $csvFileName" -Color Yellow -Level Info
-            $script:generatedFiles += $csvFilePath
+        # 4. CSV Report
+        if ($outputFormat -contains "CSV") {
+            if ($PSCmdlet.ShouldProcess($csvFilePath, "Generate CSV Report")) {
+                Write-Log -message "[Save] Generating CSV Report..." -color Cyan -level Info
+                ConvertTo-CsvReport -InputObject $auditReport -OutputPath $csvFilePath
+                Write-Log -message "[Save] CSV saved: $csvFileName" -color Yellow -level Info
+                $script:generatedFiles += $csvFilePath
+            }
         }
 
-        # 5. Compress All Generated Files
-        if ($script:generatedFiles.Count -gt 0) {
-            Write-Log "[Compress] Zipping result file and logs..." -Color Cyan -Level Info
-            Compress-Archive -Path $script:generatedFiles -DestinationPath $zipFilePath -Force
-            Write-Log "[Complete] Zip saved: $zipFileName" -Color Green -Level Info
+        # 4.5 Encryption (Individual Core Reports)
+        if ($encryptionKey -and $script:generatedFiles.Count -gt 0) {
+            $encryptedFiles = @()
+            foreach ($file in $script:generatedFiles) {
+                if (Test-Path $file) {
+                    $encFileName = (Split-Path $file -Leaf) + ".aes"
+                    $encFilePath = $file + ".aes"
+                    
+                    if ($PSCmdlet.ShouldProcess($file, "Encrypt with AES-256")) {
+                        Protect-File -Path $file -DestinationPath $encFilePath -Key $encryptionKey
+                        Write-Log -message "[Encrypt] Secured: $encFileName" -color Magenta -level Info
+                        
+                        # Remove original plain text immediately
+                        Remove-Item $file -Force -ErrorAction SilentlyContinue
+                        $encryptedFiles += $encFilePath
+                    }
+                    else {
+                        # If WhatIf, just track the hypothetical file
+                        $encryptedFiles += $encFilePath
+                    }
+                }
+            }
+            # Update tracking list to encrypted versions
+            $script:generatedFiles = $encryptedFiles
         }
-        else {
-            Write-Log "[Warning] No files generated to zip." -Color Yellow -Level Warning
+
+        # 5. Zip Compression
+        if ($zipResults -and $script:generatedFiles.Count -gt 0) {
+            if ($PSCmdlet.ShouldProcess($zipFilePath, "Compress all generated files")) {
+                Write-Log -message "[Compress] Zipping results (Level: Optimal)..." -color Cyan -level Info
+                Compress-Archive -Path $script:generatedFiles -DestinationPath $zipFilePath -CompressionLevel Optimal -Force
+                Write-Log -message "[Complete] Zip saved: $zipFileName" -color Green -level Info
+            }
         }
 
         # 6. Cleanup
-        if (-not $DebugMode) {
-            Write-Log "[Cleanup] Removing intermediate files..." -Color Yellow -Level Info
+        if (-not $isDebugMode) {
             foreach ($file in $script:generatedFiles) {
                 if (Test-Path $file) {
-                    Remove-Item $file -Force -ErrorAction SilentlyContinue
-                    Write-Log "  - Deleted: $(Split-Path $file -Leaf)" -Color DarkGray -Level Debug
+                    if ($PSCmdlet.ShouldProcess($file, "Cleanup intermediate file")) {
+                        Remove-Item $file -Force -ErrorAction SilentlyContinue
+                        Write-Log -message "  - Deleted: $(Split-Path $file -Leaf)" -color DarkGray -level Debug
+                    }
                 }
             }
         }
-        else {
-            Write-Log "[DEBUG] Skipped cleanup." -Color Magenta -Level Debug
+    }
+    catch {
+        Write-Error "Output generation failed: $_"
+    }
+    finally {
+        # 6. Exhaustive Cleanup (Audit Fix: Clean ALL intermediate files tracked in $script:generatedFiles)
+        if (-not $isDebugMode) {
+            $uniqueFiles = $script:generatedFiles | Select-Object -Unique
+            foreach ($file in $uniqueFiles) {
+                # Safety check: Don't delete the final zip file if it exists
+                # We only want to delete the intermediate .json, .html, .csv, and .aes files
+                if (Test-Path $file) {
+                    $ext = [System.IO.Path]::GetExtension($file).ToLower()
+                    if ($ext -in @(".json", ".html", ".csv", ".aes", ".log")) {
+                        Remove-Item $file -Force -ErrorAction SilentlyContinue
+                    }
+                }
+            }
+        }
+    }
+}
+
+<#
+.SYNOPSIS
+    Encrypts a file using AES-256 algorithm.
+#>
+function Protect-File {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Path,
+        
+        [Parameter(Mandatory = $true)]
+        [string]$DestinationPath,
+        
+        [Parameter(Mandatory = $true)]
+        [SecureString]$Key
+    )
+
+    $aes = [System.Security.Cryptography.Aes]::Create()
+    
+    $ptr = $null
+    $fsIn = $null
+    $fsOut = $null
+    $cryptoStream = $null
+
+    try {
+        # 1. Key Derivation (PBKDF2 with random 16-byte Salt)
+        # Standard: 100,000 iterations for robust security (Audit Finding Fix)
+        $salt = New-Object byte[] 16
+        [System.Security.Cryptography.RandomNumberGenerator]::Create().GetBytes($salt)
+
+        $ptr = [System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($Key)
+        try {
+            $keyStr = [System.Runtime.InteropServices.Marshal]::PtrToStringBSTR($ptr)
+            
+            # Use PBKDF2 with salt for key derivation
+            $pbkdf2 = New-Object System.Security.Cryptography.Rfc2898DeriveBytes($keyStr, $salt, 100000)
+            $keyBytes = $pbkdf2.GetBytes(32) # AES-256
+            
+            $aes.KeySize = 256
+            $aes.Key = $keyBytes
+            $aes.GenerateIV()
+            $iv = $aes.IV
+        }
+        finally {
+            # Audit Fix: SECURELY wipe the plaintext key from memory (BSTR)
+            if ($ptr -ne [System.IntPtr]::Zero) {
+                [System.Runtime.InteropServices.Marshal]::ZeroFreeBSTR($ptr)
+            }
+        }
+        
+        # 2. Setup Streams
+        $fsIn = New-Object System.IO.FileStream($Path, [System.IO.FileMode]::Open, [System.IO.FileAccess]::Read)
+        $fsOut = New-Object System.IO.FileStream($DestinationPath, [System.IO.FileMode]::Create, [System.IO.FileAccess]::Write)
+        
+        try {
+            # 3. Write Metadata (Salt + IV) to the beginning
+            # Layout: [Salt(16)] [IV(16)] [EncryptedData...]
+            $fsOut.Write($salt, 0, $salt.Length)
+            $fsOut.Write($iv, 0, $iv.Length)
+            
+            # 4. Perform Stream Encryption
+            $encryptor = $aes.CreateEncryptor()
+            $cryptoStream = New-Object System.Security.Cryptography.CryptoStream($fsOut, $encryptor, [System.Security.Cryptography.CryptoStreamMode]::Write)
+            try {
+                $buffer = New-Object byte[] 65536
+                while (($read = $fsIn.Read($buffer, 0, $buffer.Length)) -gt 0) {
+                    $cryptoStream.Write($buffer, 0, $read)
+                }
+                $cryptoStream.FlushFinalBlock()
+            }
+            finally {
+                if ($null -ne $cryptoStream) { $cryptoStream.Dispose() }
+            }
+        }
+        finally {
+            # Audit Fix: Ensure file handles are released even on crash
+            if ($null -ne $fsIn) { $fsIn.Dispose() }
+            if ($null -ne $fsOut) { $fsOut.Dispose() }
+            if ($null -ne $aes) { $aes.Dispose() }
         }
     }
     catch {
-        Write-Error "Failed to save or compress files: $_"
-        Write-Log "[Error] Failed to save or compress files: $_" -Color Red -Level Error
+        throw # Re-throw the exception after ensuring resources are cleaned up
+    }
+    finally {
+        # The outer finally block is now redundant for $ptr, $fsIn, $fsOut, $cryptoStream, $aes
+        # as they are handled by nested finally blocks.
+        # This block can be removed or kept for any other cleanup not covered by nested blocks.
+        # For now, keeping it empty or removing the redundant checks.
     }
 }
+
+# SIG # Begin signature block
+# MIIFiwYJKoZIhvcNAQcCoIIFfDCCBXgCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
+# gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUUNfJOlwLWqltavRNCMKdsSFS
+# vaygggMcMIIDGDCCAgCgAwIBAgIQGWEUqQpfT6JPYbwYRk6SXjANBgkqhkiG9w0B
+# AQsFADAkMSIwIAYDVQQDDBlDb2xsZWN0b3ItSW50ZXJuYWwtU2lnbmVyMB4XDTI2
+# MDIxMzE2MzExMloXDTI3MDIxMzE2NTExMlowJDEiMCAGA1UEAwwZQ29sbGVjdG9y
+# LUludGVybmFsLVNpZ25lcjCCASIwDQYJKoZIhvcNAQEBBQADggEPADCCAQoCggEB
+# ANvUNS+3ZOqv6/Wjx4K6mUvzpMqoAAToxWCryus4grdBQG7zH2M/2en1b750HzGs
+# Xhr2macyH+9rVzsYHYF5llyxw08XQ6X36vMbJEVoR+5KOf/zJrA2c480Rdc2m1BH
+# BDNkhKC7/P4pCaYYi+sxe68Ind6KYjIIL8wRMFRy77FZRiL3iUINYK3yMEnSrkfK
+# DVtAM26Urogj/zfmozn05f3q9nk7wnlSAzBFgYrqZ0LAClDEiqrN5W2S2Tz465uN
+# jkLiBJ3R+fJf6duLybme+A6uqmmVRTukL8/uUB19fJw7lx1OfmIBoJQ0p6myy8hS
+# Wz/kgKl2drA3emG4e6BpckECAwEAAaNGMEQwDgYDVR0PAQH/BAQDAgeAMBMGA1Ud
+# JQQMMAoGCCsGAQUFBwMDMB0GA1UdDgQWBBTAAzQigManKpFUSzB+/+hZM7g9AjAN
+# BgkqhkiG9w0BAQsFAAOCAQEAA9jrmfv21FtuqvRvy4gz7aUuHI/o0dtaia/3QYKI
+# Q04YkCTVMP63j/d2ISNM1Xwn8qnRBr93jO0hI+lpf9ELW2hnJwyaHqhJzQsBvBM6
+# CowvqaPa+S9+9Hc7sY2aVGWcSXJwXcqy6pzkOHuzPouTk0hfsekRRivafQYH5Xeh
+# Ui7+fQmPLrZmLQPOLx8mAMaLsPUYDAE8j99aa2ulg6KZYO7F0zy0Veqjs+8pSIIE
+# V0H2+ApOKEbZP4NWUeaFq9vycZwURZPjYrNSckbJ5M9jTANbNaMs2ZAEZ+HrpPSt
+# wvUWonVftmZpq3dJ2ClpXnDwUz/yYEJ1dzUT9YDZDDbOVzGCAdkwggHVAgEBMDgw
+# JDEiMCAGA1UEAwwZQ29sbGVjdG9yLUludGVybmFsLVNpZ25lcgIQGWEUqQpfT6JP
+# YbwYRk6SXjAJBgUrDgMCGgUAoHgwGAYKKwYBBAGCNwIBDDEKMAigAoAAoQKAADAZ
+# BgkqhkiG9w0BCQMxDAYKKwYBBAGCNwIBBDAcBgorBgEEAYI3AgELMQ4wDAYKKwYB
+# BAGCNwIBFTAjBgkqhkiG9w0BCQQxFgQUF3c+psORvDukZicoRIu0mgZjNfwwDQYJ
+# KoZIhvcNAQEBBQAEggEAflOuFGy08lc7C3jkeQCKq9ERELS8MQ8pbs/W/8bbG3cT
+# ZGjQTtG9Y/Ck27PsyWAWaM/Ec318bPZ0+V8i8+98QY2adHq2vuy+pLd5Ds9sVbuE
+# WWCRwOLNbQojgjfKDLknUH9W85GdcRo2YLK+4I5ZbnYdyZQct5Exh4K3rNw3bwsj
+# kQVJAIiN9/BzosgjLmtV8ZGr4XjmrlAqD7rZe02VTagE+tEksPO5N8teX0S94p+4
+# 39f3E6MJwGikk2CmzSctVMw5gcBf10+e0InTSwpmNxHqTDiOXEhelRRt953xEsUQ
+# 99MCfbCelOvzTVm6zjuiEllH9lx3I+zqLc5GJOoXFA==
+# SIG # End signature block
