@@ -42,7 +42,10 @@ function Get-HtmlTable {
         if ($null -eq $props) { return "<em>Complex Array</em>" }
         
         $html = "<table><thead><tr>"
-        foreach ($prop in $props) { $html += "<th>$($prop.Name)</th>" }
+        foreach ($prop in $props) {
+            $safePropName = [System.Net.WebUtility]::HtmlEncode($prop.Name)
+            $html += "<th>$safePropName</th>"
+        }
         $html += "</tr></thead><tbody>"
         
         foreach ($item in $Obj) {
@@ -75,6 +78,7 @@ function Get-HtmlTable {
         foreach ($prop in $props) {
             $name = $prop.Name
             $val = $Obj.$name
+            $safeName = [System.Net.WebUtility]::HtmlEncode($name)
             
             $displayVal = if ($val -is [Array]) { 
                 # Create a mini-list for arrays
@@ -88,7 +92,7 @@ function Get-HtmlTable {
                 [System.Net.WebUtility]::HtmlEncode("$val")
             }
             
-            $html += "<tr><td><strong>$name</strong></td><td>$displayVal</td></tr>"
+            $html += "<tr><td><strong>$safeName</strong></td><td>$displayVal</td></tr>"
         }
         $html += "</tbody></table>"
         return $html
@@ -194,9 +198,10 @@ function ConvertTo-HtmlReport {
 
     foreach ($cat in $categories) {
         if ($cat.Name -in @("Timestamp", "ExecutionTime")) { continue }
+        $safeCatName = [System.Net.WebUtility]::HtmlEncode($cat.Name)
 
         # Main Category (H2) -> Collapsible Button
-        $htmlBody += "<button type='button' class='collapsible'>$($cat.Name)</button>"
+        $htmlBody += "<button type='button' class='collapsible'>$safeCatName</button>"
         $htmlBody += "<div class='content'>" # Start Main Content Div
 
         $catData = $InputObject.($cat.Name)
@@ -204,8 +209,9 @@ function ConvertTo-HtmlReport {
         if ($catData -is [PSCustomObject]) {
             $subCats = $catData | Get-Member -MemberType NoteProperty
             foreach ($sub in $subCats) {
+                $safeSubName = [System.Net.WebUtility]::HtmlEncode($sub.Name)
                 # Sub Category (H3) -> Collapsible Button
-                $htmlBody += "<button type='button' class='collapsible' style='font-size: 1em; background-color: #fdfefe; border-left-color: #16a085;'>$($sub.Name)</button>"
+                $htmlBody += "<button type='button' class='collapsible' style='font-size: 1em; background-color: #fdfefe; border-left-color: #16a085;'>$safeSubName</button>"
                 $htmlBody += "<div class='content'>" # Start Sub Content Div
                 
                 $subData = $catData.($sub.Name)

@@ -33,9 +33,11 @@ function Save-Results {
     $zipFileName = "result_$timestamp.zip"
     $zipFilePath = Join-Path -Path $OutputDirectory -ChildPath $zipFileName
     
-    # Ensure generatedFiles list is available in script scope
-    if ($null -eq $script:generatedFiles) {
-        $script:generatedFiles = @()
+    # Always reset generated file list for this run to avoid carrying stale paths.
+    $script:generatedFiles = @()
+
+    if (-not (Test-Path -Path $OutputDirectory -PathType Container)) {
+        throw "Output directory does not exist: $OutputDirectory"
     }
     
     try {

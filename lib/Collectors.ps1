@@ -19,14 +19,16 @@ $collectorPath = Join-Path -Path $PSScriptRoot -ChildPath "collectors"
 . "$collectorPath\SecurityCollector.ps1"
 . "$collectorPath\HACollector.ps1"
 
-# Export all collector functions
-Export-ModuleMember -Function @(
-    'Get-HardwareInfo',
-    'Get-NetworkInfo',
-    'Get-OSConfig',
-    'Get-ServiceInfo',
-    'Get-PerformanceInfo',
-    'Get-LogInfo',
-    'Get-SecurityInfo',
-    'Get-HighAvailabilityInfo'
-)
+# Export functions only when loaded as a module.
+if ($ExecutionContext.SessionState.Module) {
+    Export-ModuleMember -Function @(
+        'Get-HardwareInfo',
+        'Get-NetworkInfo',
+        'Get-OSConfig',
+        'Get-ServiceInfo',
+        'Get-PerformanceInfo',
+        'Get-LogInfo',
+        'Get-SecurityInfo',
+        'Get-HighAvailabilityInfo'
+    )
+}

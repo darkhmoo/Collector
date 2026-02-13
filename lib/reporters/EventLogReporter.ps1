@@ -15,13 +15,14 @@ function ConvertTo-EventLogHtml {
         [string]$LogName
     )
     
+    $safeLogName = [System.Net.WebUtility]::HtmlEncode($LogName)
     $html = @"
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>$LogName Event Log</title>
+    <title>$safeLogName Event Log</title>
     <style>
         body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 20px; background-color: #f4f4f4; }
         h1 { color: #2c3e50; border-bottom: 2px solid #3498db; padding-bottom: 10px; }
@@ -38,7 +39,7 @@ function ConvertTo-EventLogHtml {
     </style>
 </head>
 <body>
-    <h1>$LogName Event Log</h1>
+    <h1>$safeLogName Event Log</h1>
     <div class="timestamp">Generated: $(Get-Date)</div>
     <div class="timestamp">Events: Last 7 days (Max 100)</div>
     <table>
@@ -121,7 +122,8 @@ function Export-EventLogFiles {
         }
         
         $fileExtension = if ($Format -eq "HTML") { "html" } else { "csv" }
-        $fileName = "Log_${logName}.${fileExtension}"
+        $safeFileLogName = ($logName -replace '[^\w\.-]', '_')
+        $fileName = "Log_${safeFileLogName}.${fileExtension}"
         $filePath = Join-Path -Path $OutputDir -ChildPath $fileName
         
         try {
