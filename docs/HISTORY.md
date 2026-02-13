@@ -1,4 +1,4 @@
-# 📜 프로젝트 변경 이력 (Project History)
+﻿# 📜 프로젝트 변경 이력 (Project History)
 
 ## 📅 2026-02-13 업데이트 (최신)
 
@@ -94,7 +94,13 @@
 
 ---
 
-This history file consolidates information from:
+## 📅 2026-02-13 규칙 업데이트
+- **기본 규칙 추가**: 코드 파일을 수정하면 `docs/HISTORY.md`를 같은 작업에서 함께 업데이트하도록 `AGENTS.md`에 명시
+- **문서 언어 규칙 추가**: `.md` 파일에 저장하는 내용은 한국어로 작성하도록 `AGENTS.md`에 명시
+
+---
+
+## 📚 참고 문서
 - `UPDATE_LOG_2026-02-13.md`
 - `REFACTORING_SUMMARY.md`
 - `REFACTORING_SRP.md`

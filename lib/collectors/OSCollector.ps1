@@ -14,6 +14,22 @@ function Get-OSConfig {
         OperatingSystem   = Get-CimSafe -ClassName Win32_OperatingSystem
         RecoveryConfig    = Get-CimSafe -ClassName Win32_OSRecoveryConfiguration
         PowerPlan         = Get-CimSafe -Namespace "root\cimv2\power" -ClassName Win32_PowerPlan -WhereBlock { $_.IsActive }
+        SecureBoot        = $(
+            try {
+                [PSCustomObject]@{
+                    Supported = $true
+                    Enabled   = [bool](Confirm-SecureBootUEFI -ErrorAction Stop)
+                    Message   = $null
+                }
+            }
+            catch {
+                [PSCustomObject]@{
+                    Supported = $false
+                    Enabled   = $null
+                    Message   = $_.Exception.Message
+                }
+            }
+        )
         TimeSync          = $(try { w32tm /query /status } catch { "Time Sync Info Unavailable" })
         PageFileSetting   = Get-CimSafe -ClassName Win32_PageFileSetting
         PageFileUsage     = Get-CimSafe -ClassName Win32_PageFileUsage
