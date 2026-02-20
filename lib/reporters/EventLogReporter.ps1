@@ -16,7 +16,11 @@ function ConvertTo-EventLogHtml {
         $events,
         
         [Parameter(Mandatory = $true)]
-        [string]$logName
+        [string]$logName,
+
+        [Parameter(Mandatory = $false)]
+        [ValidateRange(1, 365)]
+        [int]$lookbackDays = 7
     )
     
     $safeLogName = [System.Net.WebUtility]::HtmlEncode($logName)
@@ -35,6 +39,8 @@ function ConvertTo-EventLogHtml {
         th { background-color: #34495e; color: white; font-weight: 600; position: sticky; top: 0; }
         tr:nth-child(even) { background-color: #f9f9f9; }
         tr:hover { background-color: #f1f1f1; }
+        .level-0-failure { color: #e74c3c; font-weight: bold; } /* Audit Failure */
+        .level-0-success { color: #27ae60; }               /* Audit Success */
         .level-1 { color: #e74c3c; font-weight: bold; } /* Critical */
         .level-2 { color: #e67e22; font-weight: bold; } /* Error */
         .level-3 { color: #f39c12; } /* Warning */
@@ -45,7 +51,7 @@ function ConvertTo-EventLogHtml {
 <body>
     <h1>$safeLogName Event Log</h1>
     <div class="timestamp">Generated: $(Get-Date)</div>
-    <div class="timestamp">Events: Last 7 days (Max 100)</div>
+    <div class="timestamp">Events: Last $lookbackDays days (Max 100)</div>
     <table>
         <thead>
             <tr>
@@ -60,13 +66,21 @@ function ConvertTo-EventLogHtml {
 "@
 
     foreach ($logEvent in $events) {
-        $levelClass = "level-$($logEvent.Level)"
-        $levelText = switch ($logEvent.Level) {
-            1 { "Critical" }
-            2 { "Error" }
-            3 { "Warning" }
-            4 { "Information" }
-            default { "Unknown" }
+        # Security 감사 ?�벤??Level=0)??Keywords ?�성?�로 Audit Success/Failure�?구분
+        if ($logEvent.Level -eq 0) {
+            $isAuditFailure = ($logEvent.Keywords -band 0x10000000000000) -gt 0
+            $levelClass = if ($isAuditFailure) { "level-0-failure" } else { "level-0-success" }
+            $levelText = if ($isAuditFailure) { "Audit Failure" } else { "Audit Success" }
+        }
+        else {
+            $levelClass = "level-$($logEvent.Level)"
+            $levelText = switch ($logEvent.Level) {
+                1 { "Critical" }
+                2 { "Error" }
+                3 { "Warning" }
+                4 { "Information" }
+                default { "Unknown" }
+            }
         }
         
         $timeCreated = [System.Net.WebUtility]::HtmlEncode($logEvent.TimeCreated.ToString("yyyy-MM-dd HH:mm:ss"))
@@ -116,7 +130,11 @@ function Export-EventLogFiles {
         [string]$outputFormat = "HTML",
         
         [Parameter(Mandatory = $true)]
-        [string]$outputDir
+        [string]$outputDir,
+
+        [Parameter(Mandatory = $false)]
+        [ValidateRange(1, 365)]
+        [int]$lookbackDays = 7
     )
     
     if ($null -eq $eventLogs -or $eventLogs.Count -eq 0) {
@@ -148,7 +166,7 @@ function Export-EventLogFiles {
             else {
                 # Generate HTML for event log
                 if ($PSCmdlet.ShouldProcess($filePath, "Export Event Log to HTML")) {
-                    $htmlContent = ConvertTo-EventLogHtml -events $eventsData -logName $logKey
+                    $htmlContent = ConvertTo-EventLogHtml -events $eventsData -logName $logKey -lookbackDays $lookbackDays
                     $htmlContent | Set-Content -Path $filePath -Encoding UTF8
                 }
             }
@@ -156,10 +174,10 @@ function Export-EventLogFiles {
             if ($PSCmdlet.ShouldProcess($filePath, "Track generated log file")) {
                 $script:generatedFiles += $filePath
             }
-            Write-Log -message "    ✓ Log file processed" -color DarkGray -level Debug
+            Write-Log -message "    ??Log file processed" -color DarkGray -level Debug
         }
         catch {
-            Write-Log -message ("    ✗ Export failed for {0}: {1}" -f $logKey, $_) -color Red -level Error
+            Write-Log -message ("    ??Export failed for {0}: {1}" -f $logKey, $_) -color Red -level Error
         }
     }
 }
@@ -167,8 +185,8 @@ function Export-EventLogFiles {
 # SIG # Begin signature block
 # MIIFiwYJKoZIhvcNAQcCoIIFfDCCBXgCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQU+pP4NrGCdsB3uRBwTeVragla
-# XnWgggMcMIIDGDCCAgCgAwIBAgIQGWEUqQpfT6JPYbwYRk6SXjANBgkqhkiG9w0B
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQU7sASXghHvPSPUu24quEQascq
+# AMCgggMcMIIDGDCCAgCgAwIBAgIQGWEUqQpfT6JPYbwYRk6SXjANBgkqhkiG9w0B
 # AQsFADAkMSIwIAYDVQQDDBlDb2xsZWN0b3ItSW50ZXJuYWwtU2lnbmVyMB4XDTI2
 # MDIxMzE2MzExMloXDTI3MDIxMzE2NTExMlowJDEiMCAGA1UEAwwZQ29sbGVjdG9y
 # LUludGVybmFsLVNpZ25lcjCCASIwDQYJKoZIhvcNAQEBBQADggEPADCCAQoCggEB
@@ -188,11 +206,11 @@ function Export-EventLogFiles {
 # JDEiMCAGA1UEAwwZQ29sbGVjdG9yLUludGVybmFsLVNpZ25lcgIQGWEUqQpfT6JP
 # YbwYRk6SXjAJBgUrDgMCGgUAoHgwGAYKKwYBBAGCNwIBDDEKMAigAoAAoQKAADAZ
 # BgkqhkiG9w0BCQMxDAYKKwYBBAGCNwIBBDAcBgorBgEEAYI3AgELMQ4wDAYKKwYB
-# BAGCNwIBFTAjBgkqhkiG9w0BCQQxFgQUONX7NyVCvMeVDCIWtt7cwr7xZ9swDQYJ
-# KoZIhvcNAQEBBQAEggEAv4jQhct++8exhIMGZEFSOgl9EEM/D9hqgkHNvfncdwDT
-# Yo2N63E0Dv7ytEPDK/J1su5N33y+t+7w16QNs8OHNGeKiExRfxyEC+Qc6Hr1GKmC
-# 7AuJHt43KCccqQLOJwc9gQBTkDDFB9jYAjiYJMwbTpj6k+4y3QBo5adxjs5WozLz
-# GxIAk703AylUtLyu9ktinZxMl/ewR/1+TGaLCmnKOaZEc3CkiFQ2X0nEE0h3pW4f
-# Tw/WK1bUlPhvsp0bjvAEmbVMm4zwCQ314y+uc+eLdAm4FTyy+ujNJVzNyfsP5tZ6
-# mt2ujX1IdNAZyGCIP1xqUaQjxAjRhiHCshoXsbhQ9w==
+# BAGCNwIBFTAjBgkqhkiG9w0BCQQxFgQUtGs8f0/ylHoDeQAdkR2LxE2kT90wDQYJ
+# KoZIhvcNAQEBBQAEggEApd9r69Q89KMCjKvPfcC9pnFm5q2yrgcq3STnzSMpKcTV
+# 3lKFGY+aStnly2wfT9D+Z1pCZbGe65L7IdlwNbh++izYohs5ep195NG8d4GJjek5
+# Il0JNYdcy9nQdwxvPuxO3A//G+3xBnAMeYZlIo+wEx0q3jim7I6fJFYcJ5UeTkkq
+# GJ9Wd7mPQR/RbYsNVG7UYGi7nAAtpUkCshJTr3RA+KTqxZoMo1UYzPsO6tzcJlf7
+# h4iHuNfTn2zL23cCLCp60cOg8SShMjZNCYXcJQDOozfHtY5jDTtugTUl9NT4Ir5h
+# jj3W+yYKy1QaUVVJtAX3tV5qITU1X2vbtE4CbRp8Qw==
 # SIG # End signature block

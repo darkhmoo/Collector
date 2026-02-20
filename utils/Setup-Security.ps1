@@ -50,6 +50,20 @@ else {
     Write-Warning "Plugin path not found: $pluginPath"
 }
 
+# lib\reporters 폴더도 서명 대상에 포함
+$reporterPath = Join-Path $PSScriptRoot "..\lib\reporters"
+if (Test-Path $reporterPath) {
+    $reporters = Get-ChildItem -Path $reporterPath -Filter "*.ps1"
+    foreach ($file in $reporters) {
+        Write-Host "Signing: $($file.Name)" -ForegroundColor DarkGray
+        Set-AuthenticodeSignature -FilePath $file.FullName -Certificate $existingCert | Out-Null
+    }
+    Write-Host "All reporters signed successfully." -ForegroundColor Green
+}
+else {
+    Write-Warning "Reporter path not found: $reporterPath"
+}
+
 Write-Host "`nSecurity Setup Complete. Plugin Loading Protection can now be enabled." -ForegroundColor Cyan
 
 # SIG # Begin signature block

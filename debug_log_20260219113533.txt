@@ -1,0 +1,158 @@
+﻿[2026-02-19 11:35:33.590] [Debug]   [Security] Verifying: ADCollector.ps1
+[2026-02-19 11:35:33.604] [Debug]     ??Authenticode Valid. Module loaded.
+[2026-02-19 11:35:33.608] [Debug]   [Security] Verifying: HACollector.ps1
+[2026-02-19 11:35:33.615] [Debug]     ??Authenticode Valid. Module loaded.
+[2026-02-19 11:35:33.615] [Debug]   [Security] Verifying: HardwareCollector.ps1
+[2026-02-19 11:35:33.630] [Debug]     ??Authenticode Valid. Module loaded.
+[2026-02-19 11:35:33.630] [Debug]   [Security] Verifying: InventoryCollector.ps1
+[2026-02-19 11:35:33.642] [Debug]     ??Authenticode Valid. Module loaded.
+[2026-02-19 11:35:33.652] [Debug]   [Security] Verifying: LogCollector.ps1
+[2026-02-19 11:35:33.660] [Debug]     ??Authenticode Valid. Module loaded.
+[2026-02-19 11:35:33.665] [Debug]   [Security] Verifying: NetworkCollector.ps1
+[2026-02-19 11:35:33.676] [Debug]     ??Authenticode Valid. Module loaded.
+[2026-02-19 11:35:33.676] [Debug]   [Security] Verifying: OSCollector.ps1
+[2026-02-19 11:35:33.689] [Debug]     ??Authenticode Valid. Module loaded.
+[2026-02-19 11:35:33.691] [Debug]   [Security] Verifying: PerformanceCollector.ps1
+[2026-02-19 11:35:33.700] [Debug]     ??Authenticode Valid. Module loaded.
+[2026-02-19 11:35:33.700] [Debug]   [Security] Verifying: SecurityCollector.ps1
+[2026-02-19 11:35:33.710] [Debug]     ??Authenticode Valid. Module loaded.
+[2026-02-19 11:35:33.710] [Debug]   [Security] Verifying: ServiceCollector.ps1
+[2026-02-19 11:35:33.723] [Debug]     ??Authenticode Valid. Module loaded.
+[2026-02-19 11:35:33.723] [Debug]   [Security] Verifying: VirtualizationCollector.ps1
+[2026-02-19 11:35:33.723] [Debug]     ??Authenticode Valid. Module loaded.
+[2026-02-19 11:35:33.741] [Info] [Start] Analyzing system environment...
+[2026-02-19 11:35:33.743] [Info] [DEBUG] Logging to C:\Users\darkh\OneDrive\문서\code\Collector\debug_log_20260219113533.txt
+[2026-02-19 11:35:33.744] [Info] [1/11 Hardware] Starting collection...
+[2026-02-19 11:35:33.760] [Debug] [1/11 Hardware] Memory before: 480.24MB
+[2026-02-19 11:35:33.760] [Debug] [1/11 Hardware] Executing core collection...
+[2026-02-19 11:35:33.760] [Info] [Hardware] Starting collection phase...
+[2026-02-19 11:35:35.224] [Info] [Hardware] Completed in 1459ms.
+[2026-02-19 11:35:35.232] [Debug] [1/11 Hardware] Memory after: 482.18MB (Delta: 1.94MB)
+[2026-02-19 11:35:35.232] [Info] [1/11 Hardware] Completed in 00:00:01.464 - Type: object, Items: 11
+[2026-02-19 11:35:35.237] [Info] [2/11 Network] Starting collection...
+[2026-02-19 11:35:35.244] [Debug] [2/11 Network] Memory before: 482.18MB
+[2026-02-19 11:35:35.245] [Debug] [2/11 Network] Executing core collection...
+[2026-02-19 11:35:35.248] [Info] [Network] Starting collection phase...
+[2026-02-19 11:35:36.344] [Info] [Network] Completed in 1093ms.
+[2026-02-19 11:35:36.352] [Debug] [2/11 Network] Memory after: 490.66MB (Delta: 8.48MB)
+[2026-02-19 11:35:36.352] [Info] [2/11 Network] Completed in 00:00:01.099 - Type: object, Items: 11
+[2026-02-19 11:35:36.357] [Info] [3/11 OSConfig] Starting collection...
+[2026-02-19 11:35:36.361] [Debug] [3/11 OSConfig] Memory before: 490.66MB
+[2026-02-19 11:35:36.365] [Debug] [3/11 OSConfig] Executing core collection...
+[2026-02-19 11:35:36.365] [Info] [OSConfig] Starting collection phase...
+[2026-02-19 11:35:42.504] [Info] [OSConfig] Completed in 6139ms.
+[2026-02-19 11:35:42.517] [Debug] [3/11 OSConfig] Memory after: 490.79MB (Delta: 0.13MB)
+[2026-02-19 11:35:42.517] [Info] [3/11 OSConfig] Completed in 00:00:06.146 - Type: object, Items: 20
+[2026-02-19 11:35:42.523] [Info] [4/11 Virtualization] Starting collection...
+[2026-02-19 11:35:42.531] [Debug] [4/11 Virtualization] Memory before: 490.79MB
+[2026-02-19 11:35:42.531] [Debug] [4/11 Virtualization] Executing core collection...
+[2026-02-19 11:35:42.531] [Info] [Virtualization] Starting collection phase...
+[2026-02-19 11:35:44.567] [Info] [Virtualization] Completed in 2032ms.
+[2026-02-19 11:35:44.575] [Debug] [4/11 Virtualization] Memory after: 490.88MB (Delta: 0.09MB)
+[2026-02-19 11:35:44.575] [Info] [4/11 Virtualization] Completed in 00:00:02.036 - Type: object, Items: 3
+[2026-02-19 11:35:44.575] [Info] [5/11 Services] Starting collection...
+[2026-02-19 11:35:44.581] [Debug] [5/11 Services] Memory before: 492.71MB
+[2026-02-19 11:35:44.589] [Debug] [5/11 Services] Executing core collection...
+[2026-02-19 11:35:44.589] [Info] [Services] Starting collection phase...
+[2026-02-19 11:35:45.068] [Debug]     (Optional) Class Win32_DtcClusterDefaultResource not found. Skipping.
+[2026-02-19 11:35:45.073] [Debug]     [Stack] 위치: Get-CimSafe, C:\Users\darkh\OneDrive\문서\code\Collector\lib\Common.ps1: 49번째 줄
+위치: Collect, C:\Users\darkh\OneDrive\문서\code\Collector\lib\collectors\ServiceCollector.ps1: 49번째 줄
+위치: Get-ServiceInfo, C:\Users\darkh\OneDrive\문서\code\Collector\lib\collectors\ServiceCollector.ps1: 61번째 줄
+위치: <ScriptBlock>, C:\Users\darkh\OneDrive\문서\code\Collector\system_information_collector_for_windows.ps1: 213번째 줄
+위치: Invoke-Collection, C:\Users\darkh\OneDrive\문서\code\Collector\lib\Common.ps1: 289번째 줄
+위치: <ScriptBlock>, C:\Users\darkh\OneDrive\문서\code\Collector\system_information_collector_for_windows.ps1: 273번째 줄
+위치: <ScriptBlock>, <파일 없음>: 1번째 줄
+[2026-02-19 11:35:46.449] [Info] [Services] Completed in 1858ms.
+[2026-02-19 11:35:46.456] [Debug] [5/11 Services] Memory after: 498.55MB (Delta: 5.84MB)
+[2026-02-19 11:35:46.460] [Info] [5/11 Services] Completed in 00:00:01.863 - Type: object, Items: 5
+[2026-02-19 11:35:46.460] [Info] [6/11 Performance] Starting collection...
+[2026-02-19 11:35:46.470] [Debug] [6/11 Performance] Memory before: 498.55MB
+[2026-02-19 11:35:46.470] [Debug] [6/11 Performance] Executing core collection...
+[2026-02-19 11:35:46.474] [Info] [Performance] Starting collection phase...
+[2026-02-19 11:35:48.818] [Info] [Performance] Completed in 2342ms.
+[2026-02-19 11:35:48.826] [Debug] [6/11 Performance] Memory after: 507.03MB (Delta: 8.48MB)
+[2026-02-19 11:35:48.829] [Info] [6/11 Performance] Completed in 00:00:02.349 - Type: object, Items: 8
+[2026-02-19 11:35:48.829] [Info] [7/11 Logs] Starting collection...
+[2026-02-19 11:35:48.829] [Debug] [7/11 Logs] Memory before: 507.8MB
+[2026-02-19 11:35:48.840] [Debug] [7/11 Logs] Executing core collection...
+[2026-02-19 11:35:48.842] [Info] [Logs] Starting collection phase...
+[2026-02-19 11:35:49.367] [Info]   - Collecting System Log...
+[2026-02-19 11:35:49.414] [Info]   - Collecting Application Log...
+[2026-02-19 11:35:49.463] [Info]   - Collecting Security Log...
+[2026-02-19 11:35:49.641] [Info] [Logs] Completed in 796ms.
+[2026-02-19 11:35:49.661] [Debug] [7/11 Logs] Memory after: 589MB (Delta: 81.2MB)
+[2026-02-19 11:35:49.664] [Info] [7/11 Logs] Completed in 00:00:00.802 - Type: object, Items: 4
+[2026-02-19 11:35:49.664] [Info] [8/11 Security] Starting collection...
+[2026-02-19 11:35:49.671] [Debug] [8/11 Security] Memory before: 589MB
+[2026-02-19 11:35:49.674] [Debug] [8/11 Security] Executing core collection...
+[2026-02-19 11:35:49.674] [Info] [Security] Starting collection phase...
+[2026-02-19 11:35:50.804] [Debug]     (Optional) Class Win32_AccountStore not found. Skipping.
+[2026-02-19 11:35:50.806] [Debug]     [Stack] 위치: Get-CimSafe, C:\Users\darkh\OneDrive\문서\code\Collector\lib\Common.ps1: 49번째 줄
+위치: Collect, C:\Users\darkh\OneDrive\문서\code\Collector\lib\collectors\SecurityCollector.ps1: 23번째 줄
+위치: Get-SecurityInfo, C:\Users\darkh\OneDrive\문서\code\Collector\lib\collectors\SecurityCollector.ps1: 94번째 줄
+위치: <ScriptBlock>, C:\Users\darkh\OneDrive\문서\code\Collector\system_information_collector_for_windows.ps1: 216번째 줄
+위치: Invoke-Collection, C:\Users\darkh\OneDrive\문서\code\Collector\lib\Common.ps1: 289번째 줄
+위치: <ScriptBlock>, C:\Users\darkh\OneDrive\문서\code\Collector\system_information_collector_for_windows.ps1: 273번째 줄
+위치: <ScriptBlock>, <파일 없음>: 1번째 줄
+[2026-02-19 11:35:50.814] [Debug]     (Optional) Class Win32_LSAAccount not found. Skipping.
+[2026-02-19 11:35:50.819] [Debug]     [Stack] 위치: Get-CimSafe, C:\Users\darkh\OneDrive\문서\code\Collector\lib\Common.ps1: 49번째 줄
+위치: Collect, C:\Users\darkh\OneDrive\문서\code\Collector\lib\collectors\SecurityCollector.ps1: 25번째 줄
+위치: Get-SecurityInfo, C:\Users\darkh\OneDrive\문서\code\Collector\lib\collectors\SecurityCollector.ps1: 94번째 줄
+위치: <ScriptBlock>, C:\Users\darkh\OneDrive\문서\code\Collector\system_information_collector_for_windows.ps1: 216번째 줄
+위치: Invoke-Collection, C:\Users\darkh\OneDrive\문서\code\Collector\lib\Common.ps1: 289번째 줄
+위치: <ScriptBlock>, C:\Users\darkh\OneDrive\문서\code\Collector\system_information_collector_for_windows.ps1: 273번째 줄
+위치: <ScriptBlock>, <파일 없음>: 1번째 줄
+[2026-02-19 11:35:50.961] [Info] [Security] Completed in 1283ms.
+[2026-02-19 11:35:50.969] [Debug] [8/11 Security] Memory after: 491.04MB (Delta: -97.96MB)
+[2026-02-19 11:35:50.969] [Info] [8/11 Security] Completed in 00:00:01.287 - Type: object, Items: 16
+[2026-02-19 11:35:50.973] [Info] [9/11 Inventory] Starting collection...
+[2026-02-19 11:35:50.980] [Debug] [9/11 Inventory] Memory before: 491.04MB
+[2026-02-19 11:35:50.981] [Debug] [9/11 Inventory] Executing core collection...
+[2026-02-19 11:35:50.982] [Info] [Inventory] Starting collection phase...
+[2026-02-19 11:35:51.440] [Info] [Inventory] Completed in 457ms.
+[2026-02-19 11:35:51.448] [Debug] [9/11 Inventory] Memory after: 492.61MB (Delta: 1.57MB)
+[2026-02-19 11:35:51.451] [Info] [9/11 Inventory] Completed in 00:00:00.461 - Type: object, Items: 2
+[2026-02-19 11:35:51.453] [Info] [10/11 ActiveDirectory] Starting collection...
+[2026-02-19 11:35:51.456] [Debug] [10/11 ActiveDirectory] Memory before: 492.61MB
+[2026-02-19 11:35:51.461] [Debug] [10/11 ActiveDirectory] Executing core collection...
+[2026-02-19 11:35:51.463] [Info] [ActiveDirectory] Starting collection phase...
+[2026-02-19 11:35:51.475] [Info] [ActiveDirectory] Completed in 11ms.
+[2026-02-19 11:35:51.497] [Debug] [10/11 ActiveDirectory] Memory after: 492.63MB (Delta: 0.02MB)
+[2026-02-19 11:35:51.498] [Info] [10/11 ActiveDirectory] Completed in 00:00:00.015 - Type: object, Items: 7
+[2026-02-19 11:35:51.501] [Info] [11/11 HighAvailability] Starting collection...
+[2026-02-19 11:35:51.506] [Debug] [11/11 HighAvailability] Memory before: 492.63MB
+[2026-02-19 11:35:51.511] [Debug] [11/11 HighAvailability] Executing core collection...
+[2026-02-19 11:35:51.513] [Info] [HighAvailability] Starting collection phase...
+[2026-02-19 11:35:51.548] [Info] [HighAvailability] Completed in 34ms.
+[2026-02-19 11:35:51.556] [Debug] [11/11 HighAvailability] Memory after: 492.65MB (Delta: 0.02MB)
+[2026-02-19 11:35:51.556] [Info] [11/11 HighAvailability] Completed in 00:00:00.039 - Type: object, Items: 4
+[2026-02-19 11:35:51.556] [Info] 
+[Complete] Collection finished in 00:00:17.969
+[2026-02-19 11:35:51.569] [Debug] 
+================================================================================
+[2026-02-19 11:35:51.569] [Debug] PERFORMANCE SUMMARY (Clean Code Mode)
+[2026-02-19 11:35:51.569] [Debug] ================================================================================
+[2026-02-19 11:35:51.577] [Debug] 1/11 Hardware                     1,464ms   8.1% ####
+[2026-02-19 11:35:51.580] [Debug] 2/11 Network                      1,099ms   6.1% ###
+[2026-02-19 11:35:51.580] [Debug] 3/11 OSConfig                     6,146ms  34.2% #################
+[2026-02-19 11:35:51.580] [Debug] 4/11 Virtualization               2,036ms  11.3% ######
+[2026-02-19 11:35:51.580] [Debug] 5/11 Services                     1,863ms  10.4% #####
+[2026-02-19 11:35:51.580] [Debug] 6/11 Performance                  2,349ms  13.1% #######
+[2026-02-19 11:35:51.580] [Debug] 7/11 Logs                           802ms   4.5% ##
+[2026-02-19 11:35:51.580] [Debug] 8/11 Security                     1,287ms   7.2% ####
+[2026-02-19 11:35:51.580] [Debug] 9/11 Inventory                      461ms   2.6% #
+[2026-02-19 11:35:51.580] [Debug] 10/11 ActiveDirectory                15ms   0.1% -
+[2026-02-19 11:35:51.590] [Debug] 11/11 HighAvailability               39ms   0.2% -
+[2026-02-19 11:35:51.590] [Debug] ================================================================================
+[2026-02-19 11:35:51.592] [Debug] TOTAL                            17,561ms   100%
+[2026-02-19 11:35:51.594] [Debug] ================================================================================
+[2026-02-19 11:35:51.598] [Debug] 
+[Memory] Start: 480.24MB, End: 492.65MB, Delta: 12.41MB
+[2026-02-19 11:35:51.614] [Info] 
+[Output] Preparing reports in: HTML
+[2026-02-19 11:35:51.614] [Info]   - Exporting System Log to HTML...
+[2026-02-19 11:35:51.619] [Debug]     ??Log file processed
+[2026-02-19 11:35:51.619] [Info]   - Exporting Application Log to HTML...
+[2026-02-19 11:35:51.626] [Debug]     ??Log file processed
+[2026-02-19 11:35:51.628] [Info] [Save] Generating HTML Report...
+[2026-02-19 11:36:09.799] [Info] [Save] HTML saved: result_20260219113551.html

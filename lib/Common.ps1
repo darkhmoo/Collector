@@ -23,16 +23,16 @@ function Get-CimSafe {
         [string]$className,
         
         [Parameter(Mandatory = $false)]
-        [string]$namespace = "root\cimv2",
+        [string]$namespace = 'root\cimv2',
         
         [Parameter(Mandatory = $false)]
         [string]$filter,
         
         [Parameter(Mandatory = $false)]
-        [string[]]$selectProperties = "*",
+        [string[]]$selectProperties = '*',
         
         [Parameter(Mandatory = $false)]
-        [string[]]$excludeProperties = "Cim*",
+        [string[]]$excludeProperties = 'Cim*',
         
         [Parameter(Mandatory = $false)]
         [scriptblock]$whereBlock
@@ -42,7 +42,7 @@ function Get-CimSafe {
         $cimParams = @{
             ClassName   = $className
             Namespace   = $namespace
-            ErrorAction = "Stop"
+            ErrorAction = 'Stop'
         }
         if ($filter) { $cimParams.Filter = $filter }
 
@@ -54,10 +54,41 @@ function Get-CimSafe {
         $instances | Select-Object -Property $selectProperties -ExcludeProperty $excludeProperties
     }
     catch {
-        Write-Log -message "    ! Get-CimSafe failed for ${className}: $($_.Exception.Message)" -color Yellow -level Debug
-        return @() # Return empty array to keep reporter logic stable (Audit Fix)
+        # Edge Case: WMI Repository Corruption or Service Down
+        $hresultCode = $_.Exception.HResult
+        $hresultMsg = ''
+        if ($hresultCode) {
+            $hresultMsg = ' (HRESULT: 0x{0:X})' -f $hresultCode
+        }
+        $exceptionMsg = $_.Exception.Message
+        
+        # Define known optional classes that might be missing on some systems
+        # This approach avoids regex encoding issues with localized error messages
+        $optionalClasses = @(
+            'Win32_DtcClusterDefaultResource', 
+            'Win32_AccountStore', 
+            'Win32_LSAAccount', 
+            'AntivirusProduct',
+            'Win32_OptionalFeature'
+        )
+        
+        # Downgrade errors for optional classes to Debug
+        if ($className -in $optionalClasses -or $hresultCode -eq -2147217392) {
+            $logMsg = '    (Optional) Class {0} not found. Skipping.' -f $className
+            Write-Log -message $logMsg -color DarkGray -level Debug
+        }
+        else {
+            $logMsg = '    ! Get-CimSafe failed for {0}: {1}{2}' -f $className, $exceptionMsg, $hresultMsg
+            Write-Log -message $logMsg -color Yellow -level Warning
+        }
+        
+        if ($script:DebugMode) {
+            Write-Log -message ('    [Stack] {0}' -f $_.ScriptStackTrace) -color DarkYellow -level Debug
+        }
+        return @() 
     }
 }
+
 
 <#
 .SYNOPSIS
@@ -144,18 +175,28 @@ function Assert-Prerequisites {
 
     $minPsVersion = [version]"5.1"
     if ($PSVersionTable.PSVersion -lt $minPsVersion) {
-        throw "CRITICAL ERROR: PowerShell $minPsVersion or higher is required."
+        throw "CRITICAL ERROR: PowerShell $minPsVersion or higher is required. Current: $($PSVersionTable.PSVersion)"
+    }
+
+    # WMI Service Health Check (Edge Case: Winmgmt service disabled)
+    $wmiService = Get-Service -Name winmgmt -ErrorAction SilentlyContinue
+    if ($null -eq $wmiService -or $wmiService.Status -ne "Running") {
+        throw "CRITICAL ERROR: Windows Management Instrumentation (winmgmt) service is not running. Status: $($wmiService.Status)"
     }
 
     $systemDriveLetter = $env:SystemDrive.Substring(0, 1)
     $systemDrive = Get-PSDrive -Name $systemDriveLetter
-    if ($systemDrive.Free -lt 50MB) {
-        throw "CRITICAL ERROR: Free disk space on $($systemDriveLetter): is less than 50MB."
+    
+    # Audit Rule: $O(S \times 3)$ space check. Assume S=50MB, so 150MB recommended.
+    $requiredSpace = 150MB
+    if ($systemDrive.Free -lt $requiredSpace) {
+        $freeMB = [math]::Round($systemDrive.Free / 1MB, 2)
+        throw "CRITICAL ERROR: Insufficient disk space on $($systemDriveLetter): ($freeMB MB free). At least 150MB required for secure processing."
     }
 
     $os = Get-CimInstance -ClassName Win32_OperatingSystem -ErrorAction SilentlyContinue
     if ($os -and $os.ProductType -eq 1) {
-        Write-Warning "This script is designed for Windows Server. Client OS detected."
+        Write-Log -message "[Notice] Client OS detected. Optimized for Windows Server." -color Gray -level Info
     }
 }
 
@@ -189,14 +230,28 @@ function Get-ScriptMutex {
 
     $mutexName = "Global\SystemInfoCollector_Mutex"
     $isCreatedNew = $false
-    $mutex = New-Object System.Threading.Mutex($true, $mutexName, [ref]$isCreatedNew)
-    
-    if (-not $isCreatedNew) {
-        $mutex.Dispose()
-        throw "CRITICAL ERROR: Script is already running (Mutex locked)."
+    try {
+        $mutex = New-Object System.Threading.Mutex($true, $mutexName, [ref]$isCreatedNew)
+        
+        if (-not $isCreatedNew) {
+            $mutex.Dispose()
+            # Edge Case: Provide details about the existing process if possible
+            $currentProcId = $PID
+            $logMsg = "CRITICAL ERROR: Script is already running (Mutex locked: $mutexName). "
+            $logMsg += "Check for other powershell.exe instances. Current PID: $currentProcId"
+            throw $logMsg
+        }
+        return $mutex
     }
-
-    return $mutex
+    catch {
+        # Fallback for Mutex creation failures (e.g., access denied to Global namespace)
+        if ($_.Exception.Message -like "*Access to the path*is denied*") {
+            Write-Log -message "[Warning] Access denied to Global Mutex. Falling back to Local Mutex." -color Yellow -level Warning
+            $localMutexName = "Local\SystemInfoCollector_Mutex"
+            return New-Object System.Threading.Mutex($true, $localMutexName, [ref]$isCreatedNew)
+        }
+        throw $_
+    }
 }
 
 <#

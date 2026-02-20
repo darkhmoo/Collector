@@ -64,14 +64,25 @@ function Save-Results {
     if (-not (Test-Path -path $outputDirectory -pathType Container)) {
         throw "Output directory does not exist: $outputDirectory"
     }
+
+    # Audit Rule: Final Resource Check before I/O intensive tasks
+    $drive = Get-PSDrive -Name $outputDirectory.Substring(0, 1)
+    if ($drive.Free -lt 150MB) {
+        throw "CRITICAL ERROR: Insufficient space in $outputDirectory. 150MB required for safe reporting."
+    }
     
     try {
         Write-Log -message "`n[Output] Preparing reports in: $($outputFormat -join ', ')" -color Cyan -level Info
         
         # 1. Event Logs
         if ($auditReport.Logs.EventLogs) {
+            $eventLogLookbackDays = 7
+            if ($auditReport.Logs.PSObject.Properties.Name -contains "EventLogLookbackDays") {
+                $eventLogLookbackDays = [int]$auditReport.Logs.EventLogLookbackDays
+            }
+
             if ($PSCmdlet.ShouldProcess("All Event Logs to $outputDirectory", "Export as $eventLogFormat")) {
-                Export-EventLogFiles -EventLogs $auditReport.Logs.EventLogs -Format $eventLogFormat -OutputDir $outputDirectory
+                Export-EventLogFiles -EventLogs $auditReport.Logs.EventLogs -outputFormat $eventLogFormat -OutputDir $outputDirectory -lookbackDays $eventLogLookbackDays
             }
         }
 
@@ -147,13 +158,13 @@ function Save-Results {
             }
         }
 
-        # 6. Cleanup
-        if (-not $isDebugMode) {
+        # 6. Cleanup - ZIP ?ïÏ∂ï ?úÏóêÎß?Ï§ëÍ∞Ñ ?åÏùº ??†ú
+        if ($zipResults -and (Test-Path $zipFilePath)) {
             foreach ($file in $script:generatedFiles) {
                 if (Test-Path $file) {
-                    if ($PSCmdlet.ShouldProcess($file, "Cleanup intermediate file")) {
+                    if ($PSCmdlet.ShouldProcess($file, "Cleanup intermediate file after ZIP")) {
                         Remove-Item $file -Force -ErrorAction SilentlyContinue
-                        Write-Log -message "  - Deleted: $(Split-Path $file -Leaf)" -color DarkGray -level Debug
+                        Write-Log -message "  - Deleted intermediate: $(Split-Path $file -Leaf)" -color DarkGray -level Debug
                     }
                 }
             }
@@ -163,17 +174,12 @@ function Save-Results {
         Write-Error "Output generation failed: $_"
     }
     finally {
-        # 6. Exhaustive Cleanup (Audit Fix: Clean ALL intermediate files tracked in $script:generatedFiles)
-        if (-not $isDebugMode) {
+        # Exhaustive Cleanup: ZIP ?ùÏÑ± ???îÏó¨ Ï§ëÍ∞Ñ ?åÏùº ?ïÎ¶¨
+        if ($zipResults -and (Test-Path $zipFilePath)) {
             $uniqueFiles = $script:generatedFiles | Select-Object -Unique
             foreach ($file in $uniqueFiles) {
-                # Safety check: Don't delete the final zip file if it exists
-                # We only want to delete the intermediate .json, .html, .csv, and .aes files
                 if (Test-Path $file) {
-                    $ext = [System.IO.Path]::GetExtension($file).ToLower()
-                    if ($ext -in @(".json", ".html", ".csv", ".aes", ".log")) {
-                        Remove-Item $file -Force -ErrorAction SilentlyContinue
-                    }
+                    Remove-Item $file -Force -ErrorAction SilentlyContinue
                 }
             }
         }

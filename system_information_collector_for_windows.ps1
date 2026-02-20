@@ -11,9 +11,7 @@
 
 .PARAMETER OutputFormat
     Specifies the output format (JSON, HTML, CSV, ALL). Default is HTML.
-.PARAMETER EventLogFormat
-    Specifies the output format for event logs (HTML, CSV). Default is HTML.
-.PARAMETER Modules
+.PARAMETER EventLogFormat`r`n    Specifies the output format for event logs (HTML, CSV). Default is HTML.`r`n.PARAMETER EventLogLookbackDays`r`n    Specifies the number of days to look back when collecting Event Logs. Default is 7.`r`n.PARAMETER Modules
     Specifies which modules to collect. Default is ALL.
 .PARAMETER OutputPath
     Specifies the directory path where result files will be saved. Default is the script root.
@@ -46,6 +44,10 @@ param(
     [Parameter(Mandatory = $false)]
     [ValidateSet("HTML", "CSV")]
     [string]$eventLogFormat = "HTML",
+
+    [Parameter(Mandatory = $false)]
+    [ValidateRange(1, 365)]
+    [int]$eventLogLookbackDays = 7,
 
     [Parameter(Mandatory = $false)]
     [ValidateSet("Hardware", "Network", "OSConfig", "Inventory", "Virtualization", "Services", "Performance", "Logs", "Security", "ActiveDirectory", "HighAvailability", "ALL")]
@@ -212,7 +214,7 @@ try {
     if ($isAll -or "Virtualization" -in $modules) { $modulesToCollect["Virtualization"] = { Get-VirtualizationInfo } }
     if ($isAll -or "Services" -in $modules) { $modulesToCollect["Services"] = { Get-ServiceInfo } }
     if ($isAll -or "Performance" -in $modules) { $modulesToCollect["Performance"] = { Get-PerformanceInfo } }
-    if ($isAll -or "Logs" -in $modules) { $modulesToCollect["Logs"] = { Get-LogInfo } }
+    if ($isAll -or "Logs" -in $modules) { $modulesToCollect["Logs"] = [scriptblock]::Create("Get-LogInfo -LookbackDays $eventLogLookbackDays") }
     if ($isAll -or "Security" -in $modules) { $modulesToCollect["Security"] = { Get-SecurityInfo } }
     if ($isAll -or "Inventory" -in $modules) { $modulesToCollect["Inventory"] = { Get-InventoryInfo } }
     if ($isAll -or "ActiveDirectory" -in $modules) { $modulesToCollect["ActiveDirectory"] = { Get-ActiveDirectoryInfo } }
@@ -290,17 +292,29 @@ try {
     $finalOutputFormats = if ($outputFormat -contains "ALL") { @("JSON", "HTML", "CSV") } else { $outputFormat }
     $finalOutputFormats = $finalOutputFormats | ForEach-Object { $_.ToUpper() } | Select-Object -Unique
 
-    Save-Results `
-        -auditReport $auditReport `
-        -outputFormat $finalOutputFormats `
-        -eventLogFormat $eventLogFormat `
-        -outputDirectory $outputPath `
-        -isDebugMode $script:DebugMode `
-        -zipResults $Compress `
-        -encryptionKey $encryptionKey `
-        -WhatIf:$WhatIfPreference
+    try {
+        Save-Results `
+            -auditReport $auditReport `
+            -outputFormat $finalOutputFormats `
+            -eventLogFormat $eventLogFormat `
+            -outputDirectory $outputPath `
+            -isDebugMode $script:DebugMode `
+            -zipResults $Compress `
+            -encryptionKey $encryptionKey `
+            -WhatIf:$WhatIfPreference
+    }
+    catch {
+        Write-Log -message "[CRITICAL] Save-Results failed: $_" -color Red -level Error
+        throw $_
+    }
 
-    return $auditReport
+    # ?�성???�일 목록 출력
+    if ($script:generatedFiles.Count -gt 0) {
+        Write-Log -message "`n[Result] Generated $($script:generatedFiles.Count) file(s) in: $outputPath" -color Green -level Info
+        foreach ($f in $script:generatedFiles) {
+            Write-Log -message "  - $(Split-Path $f -Leaf)" -color Gray -level Info
+        }
+    }
 }
 finally {
     if ($globalMutex) {

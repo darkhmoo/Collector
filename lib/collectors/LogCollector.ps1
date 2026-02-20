@@ -9,23 +9,51 @@
 #>
 function Get-EventLogs {
     [CmdletBinding()]
-    param()
+    param(
+        [Parameter(Mandatory = $false)]
+        [ValidateRange(1, 365)]
+        [int]$LookbackDays = 7
+    )
 
     $eventLogsData = @{}
     $logFolders = @('System', 'Application', 'Security')
+    $lookbackMilliseconds = [int64]$LookbackDays * 24 * 60 * 60 * 1000
     
     foreach ($logName in $logFolders) {
         try {
+            # Audit Rule: Large Log Guard ($O(S)$ complexity control)
+            $logFile = Get-CimSafe -className Win32_NTEventlogFile -filter "LogfileName='$logName'" | Select-Object -First 1
+            if ($logFile -and $logFile.FileSize -gt 1GB) {
+                Write-Log -message "  ! Warning: $logName log file is very large ($([math]::Round($logFile.FileSize / 1GB, 2)) GB). Limiting event count to 50 for performance." -color Yellow -level Warning
+                $maxEvents = 50
+            }
+            else {
+                $maxEvents = 100
+            }
+
             Write-Log -message "  - Collecting $logName Log..." -color Gray -Level Info
-            $xmlFilter = @"
+
+            if ($logName -eq 'Security') {
+                $xmlFilter = @"
 <QueryList>
   <Query Id="0" Path="$logName">
-    <Select Path="$logName">*[System[(Level=1 or Level=2 or Level=3) and TimeCreated[timediff(@SystemTime) &lt;= 604800000]]]</Select>
+    <Select Path="$logName">*[System[TimeCreated[timediff(@SystemTime) &lt;= $lookbackMilliseconds]]]</Select>
   </Query>
 </QueryList>
 "@
-            $recentEvents = Get-WinEvent -FilterXml $xmlFilter -MaxEvents 100 -ErrorAction SilentlyContinue | 
-            Select-Object TimeCreated, Level, Id, ProviderName, Message
+            }
+            else {
+                $xmlFilter = @"
+<QueryList>
+  <Query Id="0" Path="$logName">
+    <Select Path="$logName">*[System[(Level=1 or Level=2 or Level=3) and TimeCreated[timediff(@SystemTime) &lt;= $lookbackMilliseconds]]]</Select>
+  </Query>
+</QueryList>
+"@
+            }
+
+            $recentEvents = Get-WinEvent -FilterXml $xmlFilter -MaxEvents $maxEvents -ErrorAction SilentlyContinue | 
+            Select-Object TimeCreated, Level, Id, ProviderName, Message, Keywords
             
             if ($recentEvents) {
                 $eventLogsData[$logName] = $recentEvents
@@ -78,7 +106,11 @@ function Get-WindowsUpdateInfo {
 }
 
 class LogCollector : BaseCollector {
-    LogCollector() : base("Logs", "Diagnostics") {}
+    [int]$LookbackDays
+
+    LogCollector([int]$lookbackDays) : base("Logs", "Diagnostics") {
+        $this.LookbackDays = $lookbackDays
+    }
 
     [PSObject] Collect() {
         $this.LogStart()
@@ -87,7 +119,8 @@ class LogCollector : BaseCollector {
         $data = [PSCustomObject]@{
             NTEventLogInfo = Get-CimSafe -className Win32_NTEventlogFile | Select-Object Name, LogfileName, MaxFileSize, NumberOfRecords
             Hotfixes       = Get-CimSafe -className Win32_QuickFixEngineering
-            EventLogs      = Get-EventLogs
+            EventLogs      = Get-EventLogs -LookbackDays $this.LookbackDays
+            EventLogLookbackDays = $this.LookbackDays
             WindowsUpdate  = Get-WindowsUpdateInfo
         }
 
@@ -98,14 +131,21 @@ class LogCollector : BaseCollector {
 }
 
 function Get-LogInfo {
-    return ([LogCollector]::new()).Collect()
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $false)]
+        [ValidateRange(1, 365)]
+        [int]$LookbackDays = 7
+    )
+
+    return ([LogCollector]::new($LookbackDays)).Collect()
 }
 
 # SIG # Begin signature block
 # MIIFiwYJKoZIhvcNAQcCoIIFfDCCBXgCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUIiXM8lZUWPjOe3OWvwgFLuf8
-# 8TagggMcMIIDGDCCAgCgAwIBAgIQGWEUqQpfT6JPYbwYRk6SXjANBgkqhkiG9w0B
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUTMrdWAN2C2y570xQ+UXklurz
+# mm6gggMcMIIDGDCCAgCgAwIBAgIQGWEUqQpfT6JPYbwYRk6SXjANBgkqhkiG9w0B
 # AQsFADAkMSIwIAYDVQQDDBlDb2xsZWN0b3ItSW50ZXJuYWwtU2lnbmVyMB4XDTI2
 # MDIxMzE2MzExMloXDTI3MDIxMzE2NTExMlowJDEiMCAGA1UEAwwZQ29sbGVjdG9y
 # LUludGVybmFsLVNpZ25lcjCCASIwDQYJKoZIhvcNAQEBBQADggEPADCCAQoCggEB
@@ -125,11 +165,11 @@ function Get-LogInfo {
 # JDEiMCAGA1UEAwwZQ29sbGVjdG9yLUludGVybmFsLVNpZ25lcgIQGWEUqQpfT6JP
 # YbwYRk6SXjAJBgUrDgMCGgUAoHgwGAYKKwYBBAGCNwIBDDEKMAigAoAAoQKAADAZ
 # BgkqhkiG9w0BCQMxDAYKKwYBBAGCNwIBBDAcBgorBgEEAYI3AgELMQ4wDAYKKwYB
-# BAGCNwIBFTAjBgkqhkiG9w0BCQQxFgQUQ0FbtdqcUTUyKyzDXeIJiEWaZlcwDQYJ
-# KoZIhvcNAQEBBQAEggEAjpQDzKMpqYx6FZ2+3D52UmhgjJe0HJxbAjqs4bLd6Ijz
-# Ip9wEmhE6YtQpbXa6raxzm1l/Wr6CoewlbySZW34SHRU1A8kTRBhAlrr8+2mSEEt
-# UYsSxgY7sjtUbN3Qjn8JO/uHcldDQhk3q1rAACebHpYssLwX+/fVMFlsxAAABglf
-# V4M9L6AOXlFtRefJ3vR7H2fs8TLtKXTuxlxJ2GWO+tziCATSlD7tVSNKQlnIvDid
-# 5Jt0TQMteBpgj1ZCplqbQuYfDO2Nm9K6fx8q+5rn4NPNNSg8g92wTjjpFqTNp/2O
-# jmvRaJV2NbRWEYQlAv7G4SN3IMvkuSuXcnplHAo4/Q==
+# BAGCNwIBFTAjBgkqhkiG9w0BCQQxFgQUjmBTvacXRHT5d4ExctkUCul4fkAwDQYJ
+# KoZIhvcNAQEBBQAEggEAgfxkIx9uVYp6E/wbOVkIEethDB0aPskRiNYEgdgogjjs
+# O2Yg/zODal8Q8Z6Tr/Pf2RH/kfCWgmq6DM8UE7S5Ez9H3xD+dJL+hvA2Hb+QSZf2
+# zIKbpO9quHwDiPsw6gMI/o2s4LjzwNo3MrVWgm+9YWpzVfVZ7tRPStRyctjZ/3QS
+# GHUkzmH3VeDOazc3paUi89gbRF15K82upTqRbzjiVsmSltt4jgyPDA1HOr1jPr2m
+# 1e3YyxJGW4nHwDjBteAvL5ocH1LQbrzlYLnhFcdIza28T4F5BJgjmrmT2hoJpEJx
+# XImhoKEMlqhBP7zl9U7blOHbT6vARd/JPNd0wL1x7w==
 # SIG # End signature block
