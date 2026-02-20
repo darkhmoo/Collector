@@ -48,7 +48,7 @@ function Save-Results {
         [SecureString]$encryptionKey
     )
     
-    $timeStamp = Get-Date -Format "yyyyMMddHHmmss"
+    $timeStamp = Get-Date -Format "yyyyMMdd-HHmmss"
     $jsonFileName = "result_$timeStamp.json"
     $jsonFilePath = Join-Path -Path $outputDirectory -ChildPath $jsonFileName
     $htmlFileName = "result_$timeStamp.html"

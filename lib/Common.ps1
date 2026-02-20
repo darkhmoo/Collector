@@ -160,8 +160,11 @@ function Assert-AdminPrivileges {
     $isAdmin = $currentPrincipal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
     
     if (-not $isAdmin) {
-        throw "Not running as Administrator. Some data collection may fail."
+        Write-Warning "Not running as Administrator. Some data collection may fail."
+        return $false
     }
+
+    return $true
 }
 
 <#

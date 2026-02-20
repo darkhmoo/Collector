@@ -64,7 +64,7 @@ param(
             }
             return $true
         })]
-    [string]$outputPath = $PSScriptRoot,
+    [string]$outputPath = (Join-Path -Path $PSScriptRoot -ChildPath "result"),
 
     [Parameter(Mandatory = $false)]
     [switch]$Compress,
@@ -140,7 +140,7 @@ $script:StepTimings = @()
 
 if ($script:DebugMode) {
     if ($PSCmdlet.ShouldProcess("Local System", "Enable Verbose Debug Logging")) {
-        $script:DebugLogFile = Join-Path -Path $PSScriptRoot -ChildPath "debug_log_$(Get-Date -Format 'yyyyMMddHHmmss').txt"
+        $script:DebugLogFile = Join-Path -Path $outputPath -ChildPath "debug_log_$(Get-Date -Format 'yyyyMMdd-HHmmss').txt"
     }
 }
 
@@ -181,7 +181,7 @@ try {
         }
     }
 
-    Assert-AdminPrivileges
+    $null = Assert-AdminPrivileges
     # 1. Mutex Ownership Check (Audit Fix: Ensure we only release if we own it)
     $globalMutex = $null
     try {
@@ -361,3 +361,4 @@ finally {
 # 5OeUF1jttSdl6pUdK9f77WVvArvXKbN3RpA94TgEatBH7xFFg0H1mRA5/BQSwmBQ
 # kN/xO95EwJ94S51pPbj+kCT1pvsrhbVNHzoTuI6f7w==
 # SIG # End signature block
+

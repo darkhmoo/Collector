@@ -6,7 +6,11 @@ Write-Host "DEBUG: Starting Save-Results Test" -ForegroundColor Magenta
 # 1. Define paths (Relative to tests directory)
 $scriptRoot = Split-Path -Parent $PSScriptRoot
 $libPath = Join-Path $scriptRoot "lib"
-$outputPath = $scriptRoot # Save to root
+$outputPath = Join-Path $scriptRoot "result"
+
+if (-not (Test-Path -Path $outputPath -PathType Container)) {
+    New-Item -Path $outputPath -ItemType Directory -Force | Out-Null
+}
 
 Write-Host "DEBUG: Script Root: $scriptRoot"
 Write-Host "DEBUG: Output Path: $outputPath"
