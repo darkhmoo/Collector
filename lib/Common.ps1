@@ -150,6 +150,34 @@ function Write-Log {
 
 <#
 .SYNOPSIS
+    Generates a collision-resistant file stamp for output files.
+.PARAMETER BaseTime
+    Optional fixed time for deterministic testing.
+#>
+function New-CollectorFileStamp {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $false)]
+        [datetime]$BaseTime = (Get-Date)
+    )
+
+    if (-not $script:FileStampCounter) {
+        $script:FileStampCounter = 0
+    }
+    $script:FileStampCounter++
+    if ($script:FileStampCounter -gt 9999) {
+        $script:FileStampCounter = 1
+    }
+
+    $counterSuffix = "{0:D4}" -f $script:FileStampCounter
+    $randomSuffix = [guid]::NewGuid().ToString("N").Substring(0, 6).ToLower()
+    $baseStamp = $BaseTime.ToString("yyyyMMdd-HHmmss-fff")
+
+    return "$baseStamp-$counterSuffix-$randomSuffix"
+}
+
+<#
+.SYNOPSIS
     Checks if the script is running with Administrator privileges.
 #>
 function Assert-AdminPrivileges {
@@ -680,8 +708,8 @@ function Open-LocalizedDoc {
 # SIG # Begin signature block
 # MIIFiwYJKoZIhvcNAQcCoIIFfDCCBXgCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUlRCUYorf7RJrHAX2Gyjsj13I
-# rqKgggMcMIIDGDCCAgCgAwIBAgIQGWEUqQpfT6JPYbwYRk6SXjANBgkqhkiG9w0B
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUbpysWfL/KtDIO9LHegTKZgRC
+# ZvKgggMcMIIDGDCCAgCgAwIBAgIQGWEUqQpfT6JPYbwYRk6SXjANBgkqhkiG9w0B
 # AQsFADAkMSIwIAYDVQQDDBlDb2xsZWN0b3ItSW50ZXJuYWwtU2lnbmVyMB4XDTI2
 # MDIxMzE2MzExMloXDTI3MDIxMzE2NTExMlowJDEiMCAGA1UEAwwZQ29sbGVjdG9y
 # LUludGVybmFsLVNpZ25lcjCCASIwDQYJKoZIhvcNAQEBBQADggEPADCCAQoCggEB
@@ -701,11 +729,11 @@ function Open-LocalizedDoc {
 # JDEiMCAGA1UEAwwZQ29sbGVjdG9yLUludGVybmFsLVNpZ25lcgIQGWEUqQpfT6JP
 # YbwYRk6SXjAJBgUrDgMCGgUAoHgwGAYKKwYBBAGCNwIBDDEKMAigAoAAoQKAADAZ
 # BgkqhkiG9w0BCQMxDAYKKwYBBAGCNwIBBDAcBgorBgEEAYI3AgELMQ4wDAYKKwYB
-# BAGCNwIBFTAjBgkqhkiG9w0BCQQxFgQUQ8aBffTQjPt5t2ThPLQ499R2814wDQYJ
-# KoZIhvcNAQEBBQAEggEALRNTb92F9FZEJIB+wS7oicTspSowEYq/AvWsMM4gR4em
-# 8di9JlifGY9s1c8R8ZuntuqonhnOcmcxyF4sLhjWBVBLYS68e0vywy5SJzfdvwr0
-# KXTEEeSjOzfDmobsPO9hPMooYapSAnmTok/AK6/uQxTcA7ZDF42XSw8WlxWr6V36
-# kkVEUJPinUIw9GlVS9qO5tDQFUt1WQ3ggji6Co6G1jGZtZZ6LF8S8nH+MINynHXa
-# Hy9WFtgIugeS28t83l0IV+kaIilACQM6LzpD7Cx7Ne6YzAlUFOXi/qd3/C2FQNyc
-# OJ0f2agKg4a7apv4+Wfg+IIFovV2KY12M85RP9u0LA==
+# BAGCNwIBFTAjBgkqhkiG9w0BCQQxFgQUpYafSeK99G2HLDPXU+zgLxDm31swDQYJ
+# KoZIhvcNAQEBBQAEggEAZPqgtHj5vr69g3mXyo/LJiAN+x4S57Z8kopSDTN0RcPo
+# sxDY7oQZ8REFrEbWqVTFNUp6x86SBPr1Q8vXzyAqzeg2F7LRwjDANmwlpHDrhuQX
+# MN1dZ6bxIclO2YWu2PiAvmT5D+PWzpFeV8NkLGHpXJs92epx/EHRvp5UiUXnEjrL
+# xoa9L/sBaakObUqYDGNiidOtd71g72wWnZ4bPUwH5CPKXPWtMV9lEfRNA6+UyXlj
+# zPkFeF6DdVf5ALRnxd9PHUducXCUISq/PZEK6215wJXix7wzFrMoZZ1u5GFTJ7fR
+# aId2/rZxuC6jemKXNZq6s67+nhi+fvulAWaNhBdHag==
 # SIG # End signature block

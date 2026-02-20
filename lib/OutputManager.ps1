@@ -48,7 +48,7 @@ function Save-Results {
         [SecureString]$encryptionKey
     )
     
-    $timeStamp = Get-Date -Format "yyyyMMdd-HHmmss"
+    $timeStamp = New-CollectorFileStamp
     $jsonFileName = "result_$timeStamp.json"
     $jsonFilePath = Join-Path -Path $outputDirectory -ChildPath $jsonFileName
     $htmlFileName = "result_$timeStamp.html"
@@ -283,8 +283,8 @@ function Protect-File {
 # SIG # Begin signature block
 # MIIFiwYJKoZIhvcNAQcCoIIFfDCCBXgCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUP2NkjC95Me1HAYCCSkJXHyKB
-# egegggMcMIIDGDCCAgCgAwIBAgIQGWEUqQpfT6JPYbwYRk6SXjANBgkqhkiG9w0B
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUb8KanpVoG07mIrFdiz6/t1BX
+# DYSgggMcMIIDGDCCAgCgAwIBAgIQGWEUqQpfT6JPYbwYRk6SXjANBgkqhkiG9w0B
 # AQsFADAkMSIwIAYDVQQDDBlDb2xsZWN0b3ItSW50ZXJuYWwtU2lnbmVyMB4XDTI2
 # MDIxMzE2MzExMloXDTI3MDIxMzE2NTExMlowJDEiMCAGA1UEAwwZQ29sbGVjdG9y
 # LUludGVybmFsLVNpZ25lcjCCASIwDQYJKoZIhvcNAQEBBQADggEPADCCAQoCggEB
@@ -304,11 +304,11 @@ function Protect-File {
 # JDEiMCAGA1UEAwwZQ29sbGVjdG9yLUludGVybmFsLVNpZ25lcgIQGWEUqQpfT6JP
 # YbwYRk6SXjAJBgUrDgMCGgUAoHgwGAYKKwYBBAGCNwIBDDEKMAigAoAAoQKAADAZ
 # BgkqhkiG9w0BCQMxDAYKKwYBBAGCNwIBBDAcBgorBgEEAYI3AgELMQ4wDAYKKwYB
-# BAGCNwIBFTAjBgkqhkiG9w0BCQQxFgQUippd7qCX0n9q3fw5JfAFDA481nAwDQYJ
-# KoZIhvcNAQEBBQAEggEA0dcouFVf0UC7F9wz/tyiFtQOIcikHzhOHHzfpujTrCDh
-# fIkBRDe1Hu9+dUJ0oS+kCPvDPDfO/qT+cgnp7NZUp+wKb3aNbPCVhT0c6NV4iLAF
-# RoxG8u0IqttGCUTA0XGs8twVwlz7keDiIL0yC+Lh2G8R4PRkAdxewjz0/BDV24Iu
-# ebj59pJbaDGQAgvtywsSYYAJ/A4o+nuSzL969nsuNqtxVPlvEEdjX/ECNcv1ARJ6
-# IiGgFAcSRiVhZWMjdbNfGpxPviMCzodHVbVQ0/8friNqYr9lEG/k0vTwsMC0O5Nz
-# d4HlsT3viidPakds9FAMM2J1WKFrV1Fd9jNzmoILug==
+# BAGCNwIBFTAjBgkqhkiG9w0BCQQxFgQUFYIKuApQGlyC+h8ryoet4uoJDrUwDQYJ
+# KoZIhvcNAQEBBQAEggEApmgqpFBGSOob8c7FBqIOLOeW4zOVXhwevGk8Rt8O2xki
+# +tLmDYQMTmYAgXjmgpkE44jhze42fOLYPXcBhHjtJ6syKrOsuA1KKrogC8oa08PF
+# yMR5SBfKB611/f5jsCYeH5Sko2d2XPI+eLkvKT6o5sqa63gDc0uScNBV1Xcz9hFQ
+# 9VSz6LWZqQiLwR4iwMcxmi1kC0hbpTHnVdcv2oZ8uFUYM5PLfyM8AeqPcMAi4EbZ
+# DsxQrSzVg/Vd27j+0A2e5M5UmjistxaakyFRLU9Vv2oQgWm9Z/yZKqkx5gQrCaEg
+# tHoVHkTVrOrlWsMLPjauct+8zjgKCHTzqolqBLw5PQ==
 # SIG # End signature block

@@ -1,4 +1,4 @@
-# 📘 Multi-Output Format Usage Guide
+﻿# 📘 Multi-Output Format Usage Guide
 
 ## Overview
 The System Information Collector can now output results in **JSON**, **HTML**, and **CSV** formats. Event logs can be saved in **HTML** or **CSV** formats separately.
@@ -27,7 +27,7 @@ The System Information Collector can now output results in **JSON**, **HTML**, a
 ```powershell
 .\system_information_collector_for_windows.ps1
 ```
-**Output**: `result_yyyyMMddHHmmss.html` + Event Log HTML files.
+**Output**: `result_yyyyMMdd-HHmmss-fff-####-xxxxxx.html` + Event Log HTML files.
 
 ---
 
@@ -35,7 +35,7 @@ The System Information Collector can now output results in **JSON**, **HTML**, a
 ```powershell
 .\system_information_collector_for_windows.ps1 -OutputFormat JSON
 ```
-**Output**: `result_yyyyMMddHHmmss.json`
+**Output**: `result_yyyyMMdd-HHmmss-fff-####-xxxxxx.json`
 
 ---
 
@@ -44,8 +44,8 @@ The System Information Collector can now output results in **JSON**, **HTML**, a
 .\system_information_collector_for_windows.ps1 -OutputFormat HTML,JSON
 ```
 **Output**: 
-- `result_yyyyMMddHHmmss.html`
-- `result_yyyyMMddHHmmss.json`
+- `result_yyyyMMdd-HHmmss-fff-####-xxxxxx.html`
+- `result_yyyyMMdd-HHmmss-fff-####-xxxxxx.json`
 
 ---
 
@@ -66,20 +66,20 @@ The System Information Collector can now output results in **JSON**, **HTML**, a
 .\system_information_collector_for_windows.ps1 -OutputFormat ALL
 ```
 **Output**: 
-- `result_yyyyMMddHHmmss.json`
-- `result_yyyyMMddHHmmss.html`
-- `result_yyyyMMddHHmmss.csv` (Summary)
-- `result_yyyyMMddHHmmss_Hardware.csv`
-- `result_yyyyMMddHHmmss_Network.csv`
-- `result_yyyyMMddHHmmss_OSConfig.csv`
-- `result_yyyyMMddHHmmss_Services.csv`
-- `result_yyyyMMddHHmmss_Performance.csv`
-- `result_yyyyMMddHHmmss_Logs.csv`
-- `result_yyyyMMddHHmmss_Security.csv`
-- `result_yyyyMMddHHmmss_HighAvailability.csv`
-- `result_yyyyMMddHHmmss_ActiveDirectory.csv`
-- `result_yyyyMMddHHmmss_Virtualization.csv`
-- `result_yyyyMMddHHmmss_Inventory.csv`
+- `result_yyyyMMdd-HHmmss-fff-####-xxxxxx.json`
+- `result_yyyyMMdd-HHmmss-fff-####-xxxxxx.html`
+- `result_yyyyMMdd-HHmmss-fff-####-xxxxxx.csv` (Summary)
+- `result_yyyyMMdd-HHmmss-fff-####-xxxxxx_Hardware.csv`
+- `result_yyyyMMdd-HHmmss-fff-####-xxxxxx_Network.csv`
+- `result_yyyyMMdd-HHmmss-fff-####-xxxxxx_OSConfig.csv`
+- `result_yyyyMMdd-HHmmss-fff-####-xxxxxx_Services.csv`
+- `result_yyyyMMdd-HHmmss-fff-####-xxxxxx_Performance.csv`
+- `result_yyyyMMdd-HHmmss-fff-####-xxxxxx_Logs.csv`
+- `result_yyyyMMdd-HHmmss-fff-####-xxxxxx_Security.csv`
+- `result_yyyyMMdd-HHmmss-fff-####-xxxxxx_HighAvailability.csv`
+- `result_yyyyMMdd-HHmmss-fff-####-xxxxxx_ActiveDirectory.csv`
+- `result_yyyyMMdd-HHmmss-fff-####-xxxxxx_Virtualization.csv`
+- `result_yyyyMMdd-HHmmss-fff-####-xxxxxx_Inventory.csv`
 
 ---
 
@@ -109,7 +109,7 @@ The System Information Collector can now output results in **JSON**, **HTML**, a
 ## 📊 Output File Structure
 
 ### HTML Output
-- **Main Report**: `result_yyyyMMddHHmmss.html`
+- **Main Report**: `result_yyyyMMdd-HHmmss-fff-####-xxxxxx.html`
   - All categories displayed in a collapsible format.
   - Color-coding and responsive design.
   
@@ -119,17 +119,17 @@ The System Information Collector can now output results in **JSON**, **HTML**, a
   - `Log_Security.html`
 
 ### JSON Output
-- **Single File**: `result_yyyyMMddHHmmss.json`
+- **Single File**: `result_yyyyMMdd-HHmmss-fff-####-xxxxxx.json`
   - All system information saved in a hierarchical structure.
   - Supports nested objects up to Depth 5.
 
 ### CSV Output
-- **Summary File**: `result_yyyyMMddHHmmss.csv`
+- **Summary File**: `result_yyyyMMdd-HHmmss-fff-####-xxxxxx.csv`
   - Number of items per category and a list of generated filenames.
   
 - **Per-Category Files**: 
-  - `result_yyyyMMddHHmmss_Hardware.csv`
-  - `result_yyyyMMddHHmmss_Network.csv`
+  - `result_yyyyMMdd-HHmmss-fff-####-xxxxxx_Hardware.csv`
+  - `result_yyyyMMdd-HHmmss-fff-####-xxxxxx_Network.csv`
   - etc.
   - Each file saves the flattened data for that specific category.
 
@@ -138,13 +138,13 @@ The System Information Collector can now output results in **JSON**, **HTML**, a
   - `Log_Application.csv`
   - `Log_Security.csv`
 
-- `result_yyyyMMddHHmmss.zip` (Generated when `-Compress` is specified)
+- `result_yyyyMMdd-HHmmss-fff-####-xxxxxx.zip` (Generated when `-Compress` is specified)
 
 ### 🔐 Security Encryption (AES-256)
 When using the `-Encrypt` option, all result files are encrypted:
 - **AES-256 (100,000 PBKDF2 rounds)**: Applies strong key derivation to defend against brute-force attacks.
-- `result_yyyyMMddHHmmss.json.aes`
-- `result_yyyyMMddHHmmss.html.aes`
+- `result_yyyyMMdd-HHmmss-fff-####-xxxxxx.json.aes`
+- `result_yyyyMMdd-HHmmss-fff-####-xxxxxx.html.aes`
 - Encrypted files can only be restored using the dedicated utility (`utils/Decrypt-Results.ps1`).
 
 ### 🛡️ Script Integrity & Trust (Authenticode)
@@ -380,7 +380,7 @@ This tool utilizes digital signatures to prevent the execution of unauthorized s
 
 1. **ZIP File**: All generated files are automatically compressed into a ZIP archive.
 2. **File Cleanup**: Intermediate files are auto-deleted when run without `-DebugMode`.
-3. **Timestamp**: All filenames include the generation time (`yyyyMMddHHmmss`).
+3. **Timestamp**: All filenames include the generation time (`yyyyMMdd-HHmmss-fff-####-xxxxxx`).
 4. **Encoding**: All text files are saved in UTF-8 encoding.
 5. **Admin Privileges**: Administrator rights are required to collect certain pieces of information.
 
@@ -417,3 +417,4 @@ Invoke-Command -ComputerName Server01 -FilePath .\system_information_collector_f
 ## 📞 Support
 
 If you encounter issues or have feature requests, please register an issue!
+

@@ -644,12 +644,90 @@ class SignatureVerificationEnforcementContractTest : BaseTest {
 
         return "Enforcement contract verified"
     }
+}
 
+class FileStampFactoryContractTest : BaseTest {
+    FileStampFactoryContractTest() : base("File Stamp Factory Contract", "EdgeCase-P1") {}
+
+    [string] Execute() {
+        $cmd = Get-Command New-CollectorFileStamp -ErrorAction SilentlyContinue
+        if ($null -eq $cmd) {
+            throw "New-CollectorFileStamp function not found."
+        }
+        if (-not $cmd.Parameters.ContainsKey("BaseTime")) {
+            throw "New-CollectorFileStamp must expose -BaseTime for deterministic tests."
+        }
+        return "File stamp factory contract found"
+    }
+}
+
+class FileStampSameSecondUniquenessTest : BaseTest {
+    FileStampSameSecondUniquenessTest() : base("File Stamp Same Second Uniqueness", "EdgeCase-P1") {}
+
+    [string] Execute() {
+        $baseTime = [datetime]"2026-02-20T10:10:10.000"
+        $values = @()
+        for ($i = 0; $i -lt 20; $i++) {
+            $values += New-CollectorFileStamp -BaseTime $baseTime
+        }
+
+        $uniqueCount = ($values | Select-Object -Unique).Count
+        if ($uniqueCount -ne 20) {
+            throw "Stamp factory generated duplicate values for same base time."
+        }
+        foreach ($value in $values) {
+            if ($value -notmatch '^\d{8}-\d{6}-\d{3}-\d{4}-[a-f0-9]{6}$') {
+                throw "Unexpected stamp format: $value"
+            }
+        }
+
+        return "Same-second uniqueness verified"
+    }
+}
+
+class SaveResultsSharedStampContractTest : BaseTest {
+    SaveResultsSharedStampContractTest() : base("Save-Results Shared Stamp Contract", "EdgeCase-P1") {}
+
+    [string] Execute() {
+        $outputManagerPath = Join-Path $PSScriptRoot "..\..\lib\OutputManager.ps1"
+        if (-not (Test-Path -Path $outputManagerPath -PathType Leaf)) {
+            throw "OutputManager script not found."
+        }
+
+        $content = Get-Content -Path $outputManagerPath -Raw -Encoding UTF8
+        if ($content -notmatch 'New-CollectorFileStamp') {
+            throw "Save-Results must use New-CollectorFileStamp."
+        }
+        if ($content -match 'Get-Date\s+-Format\s+\"yyyyMMdd-HHmmss\"') {
+            throw "Legacy second-level timestamp usage remains in Save-Results."
+        }
+
+        return "Save-Results shared stamp contract verified"
+    }
+}
+
+class EventLogReporterSharedStampContractTest : BaseTest {
+    EventLogReporterSharedStampContractTest() : base("EventLog Reporter Shared Stamp Contract", "EdgeCase-P1") {}
+
+    [string] Execute() {
+        $eventReporterPath = Join-Path $PSScriptRoot "..\..\lib\reporters\EventLogReporter.ps1"
+        if (-not (Test-Path -Path $eventReporterPath -PathType Leaf)) {
+            throw "EventLogReporter script not found."
+        }
+
+        $content = Get-Content -Path $eventReporterPath -Raw -Encoding UTF8
+        if ($content -notmatch 'New-CollectorFileStamp') {
+            throw "EventLogReporter must use shared file stamp fallback."
+        }
+
+        return "EventLog reporter shared stamp contract verified"
+    }
+}
 # SIG # Begin signature block
 # MIIFiwYJKoZIhvcNAQcCoIIFfDCCBXgCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUY8rD8BwvYR7NrSen3XjfSSkM
-# vZGgggMcMIIDGDCCAgCgAwIBAgIQGWEUqQpfT6JPYbwYRk6SXjANBgkqhkiG9w0B
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQU/x7kgeX9OFIPPQWgq42VZYVP
+# uTugggMcMIIDGDCCAgCgAwIBAgIQGWEUqQpfT6JPYbwYRk6SXjANBgkqhkiG9w0B
 # AQsFADAkMSIwIAYDVQQDDBlDb2xsZWN0b3ItSW50ZXJuYWwtU2lnbmVyMB4XDTI2
 # MDIxMzE2MzExMloXDTI3MDIxMzE2NTExMlowJDEiMCAGA1UEAwwZQ29sbGVjdG9y
 # LUludGVybmFsLVNpZ25lcjCCASIwDQYJKoZIhvcNAQEBBQADggEPADCCAQoCggEB
@@ -669,11 +747,11 @@ class SignatureVerificationEnforcementContractTest : BaseTest {
 # JDEiMCAGA1UEAwwZQ29sbGVjdG9yLUludGVybmFsLVNpZ25lcgIQGWEUqQpfT6JP
 # YbwYRk6SXjAJBgUrDgMCGgUAoHgwGAYKKwYBBAGCNwIBDDEKMAigAoAAoQKAADAZ
 # BgkqhkiG9w0BCQMxDAYKKwYBBAGCNwIBBDAcBgorBgEEAYI3AgELMQ4wDAYKKwYB
-# BAGCNwIBFTAjBgkqhkiG9w0BCQQxFgQUX0WL/AO430ZBotIBWsnaG5DwDfswDQYJ
-# KoZIhvcNAQEBBQAEggEAA4ZWSzyofdiN19tE2MQ4QY5gh0ef3wPdayauPDqmMV4b
-# TivPjhw1Hm8e+ubj45filVnZlqNykRECUa6muxYp8kC5cujCxaZwrPLIQmdGLz7T
-# 8Q020DeUTSAXIMQ3lWktd2kT973YU/smNMvUxWFXUVHqL8tM16+fwBJXHMG9MWSe
-# KgZfh4WqcsoMdW8lMyS4k6a+wdPiUKoOfTbTcf5bxKv2x862f+mII60xMAROuEeY
-# SWd5WpKiJGwtOJeyGjVENNIOZp/lOpScEHzCzET2HgnZTAA6lhZSZZVv26/1ITgM
-# E3uH+Cd2LXgf5hzVsy6hDtibE5Ajsiw4ApoK7zK8MQ==
+# BAGCNwIBFTAjBgkqhkiG9w0BCQQxFgQUQgbSjwx6nAYQpT9ZVK1ChFJwvEAwDQYJ
+# KoZIhvcNAQEBBQAEggEAO5RHCD1ZtAD6AUmf4j05WPLdKfh9K02Swhp34n0zYAjn
+# lTXhfi5N1rhNHNInn/vaMbqgaHmR1NtPCtu3qf8OJlHmZ5E3Ikc3gOM+c5q+bkLr
+# iZEk0SL/Xgin3NnOV5qGEaIcL0g5CxcBTYc+XXyQQR8g0MOmAgo9ssJg81BEipGi
+# oBVgknrJ1Wh8lgk+dOTXQx/Vo86O0nU101ArFQW+sZd+D324IqjX+UDS0yBQAueC
+# zL9j/f8cJAHEWSSZ1Grn03fZCQsVc4ZEnWovdfeKYpYFCvVduSHnvPTgd2AOKPRj
+# f4pObWKSmboNx0zqzeEsJ1+mYFtkf9moORtOOrO16w==
 # SIG # End signature block

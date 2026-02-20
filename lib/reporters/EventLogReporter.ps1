@@ -137,7 +137,7 @@ function Export-EventLogFiles {
         [int]$lookbackDays = 7,
 
         [Parameter(Mandatory = $false)]
-        [string]$fileTimestamp = (Get-Date -Format "yyyyMMdd-HHmmss")
+        [string]$fileTimestamp = ""
     )
     
     if ($null -eq $eventLogs -or $eventLogs.Count -eq 0) {
@@ -146,7 +146,13 @@ function Export-EventLogFiles {
     }
 
     if ([string]::IsNullOrWhiteSpace($fileTimestamp)) {
-        $fileTimestamp = Get-Date -Format "yyyyMMdd-HHmmss"
+        if (Get-Command New-CollectorFileStamp -ErrorAction SilentlyContinue) {
+            $fileTimestamp = New-CollectorFileStamp
+        }
+        else {
+            # Legacy fallback for isolated reporter usage.
+            $fileTimestamp = Get-Date -Format "yyyyMMdd-HHmmss-fff-0001-legacy"
+        }
     }
     
     foreach ($logKey in $eventLogs.Keys) {
@@ -192,8 +198,8 @@ function Export-EventLogFiles {
 # SIG # Begin signature block
 # MIIFiwYJKoZIhvcNAQcCoIIFfDCCBXgCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUsTbR7seNiUDYemscZWgU3pCZ
-# wwygggMcMIIDGDCCAgCgAwIBAgIQGWEUqQpfT6JPYbwYRk6SXjANBgkqhkiG9w0B
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUqfjU+khweJi4eTzYk+MJfSJl
+# bf+gggMcMIIDGDCCAgCgAwIBAgIQGWEUqQpfT6JPYbwYRk6SXjANBgkqhkiG9w0B
 # AQsFADAkMSIwIAYDVQQDDBlDb2xsZWN0b3ItSW50ZXJuYWwtU2lnbmVyMB4XDTI2
 # MDIxMzE2MzExMloXDTI3MDIxMzE2NTExMlowJDEiMCAGA1UEAwwZQ29sbGVjdG9y
 # LUludGVybmFsLVNpZ25lcjCCASIwDQYJKoZIhvcNAQEBBQADggEPADCCAQoCggEB
@@ -213,11 +219,11 @@ function Export-EventLogFiles {
 # JDEiMCAGA1UEAwwZQ29sbGVjdG9yLUludGVybmFsLVNpZ25lcgIQGWEUqQpfT6JP
 # YbwYRk6SXjAJBgUrDgMCGgUAoHgwGAYKKwYBBAGCNwIBDDEKMAigAoAAoQKAADAZ
 # BgkqhkiG9w0BCQMxDAYKKwYBBAGCNwIBBDAcBgorBgEEAYI3AgELMQ4wDAYKKwYB
-# BAGCNwIBFTAjBgkqhkiG9w0BCQQxFgQUiuuiYJxaQsXotF7h1vG09P3tF70wDQYJ
-# KoZIhvcNAQEBBQAEggEAg+SPmZYrKxxH5uhAu7Tf22FG8a6z7INl0cljTOqSul/p
-# qneuB/LpoO3aTXiOB+085FAdA4cQl9vGssrpyNi0CFn5lgubS3djlwO8CCAnf1W0
-# V0jQD9K/gDdNk2PIAmCsO1Jocc5N1FjJMoh63HvwS7phTfbf8MI43ECdXqHCIwlb
-# UP3xhKNTf5NUjxSAPfQ9Ak3VuZt1T5mxKL2OeradFWEPR0u1N9crEtzOP5wqTexH
-# YmQZ8yZxytcooKx+o1vEchBaA6m2wu+ZGPB2ucuXk9JbNKuv1BOMPlgULNOxSi0w
-# jXfgdv514asrkD6kjfvnPcQMprigV2B4sUYlN0s4lw==
+# BAGCNwIBFTAjBgkqhkiG9w0BCQQxFgQUOOm3HgjnjZa7Cbp0zg3vFfXPO8QwDQYJ
+# KoZIhvcNAQEBBQAEggEAwmBNYhnMze7Hi3rch39fV10C4KHdY8t0v894Qoc6zKu9
+# C4efTZa9KTpp4F+huM4cVO6cqIatEui/mQJHDkx/Hv1mRUn1y7GfusLZ5arAA86c
+# u3nL+MYMjf22zvAf9otEIURkbXXFsASVIlB0tp/q1fS7MRJb2JPyYkxSdaZ8tvYR
+# PIuDJQrXIdoK4XrzOX/Bie3RKgp+EEm/2L6hiZ2M1cof1xulFQkjT0h0JBCmlvWL
+# lvu9DZsr3xPz3fYvRRYXIQRBO3D8Qmuci7wMcx/G78cG8SuDM+/6CGiIuqzqVA58
+# TZUKGJ570aHHR3zx3V6CnByCMpp9dQhHZzLOHxpT+w==
 # SIG # End signature block

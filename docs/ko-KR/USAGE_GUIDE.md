@@ -27,7 +27,7 @@
 ```powershell
 .\system_information_collector_for_windows.ps1
 ```
-**결과**: `result_yyyyMMddHHmmss.html` + 이벤트 로그 HTML 파일들
+**결과**: `result_yyyyMMdd-HHmmss-fff-####-xxxxxx.html` + 이벤트 로그 HTML 파일들
 
 ---
 
@@ -35,7 +35,7 @@
 ```powershell
 .\system_information_collector_for_windows.ps1 -OutputFormat JSON
 ```
-**결과**: `result_yyyyMMddHHmmss.json`
+**결과**: `result_yyyyMMdd-HHmmss-fff-####-xxxxxx.json`
 
 ---
 
@@ -44,8 +44,8 @@
 .\system_information_collector_for_windows.ps1 -OutputFormat HTML,JSON
 ```
 **결과**: 
-- `result_yyyyMMddHHmmss.html`
-- `result_yyyyMMddHHmmss.json`
+- `result_yyyyMMdd-HHmmss-fff-####-xxxxxx.html`
+- `result_yyyyMMdd-HHmmss-fff-####-xxxxxx.json`
 
 ---
 
@@ -66,20 +66,20 @@
 .\system_information_collector_for_windows.ps1 -OutputFormat ALL
 ```
 **결과**: 
-- `result_yyyyMMddHHmmss.json`
-- `result_yyyyMMddHHmmss.html`
-- `result_yyyyMMddHHmmss.csv` (요약)
-- `result_yyyyMMddHHmmss_Hardware.csv`
-- `result_yyyyMMddHHmmss_Network.csv`
-- `result_yyyyMMddHHmmss_OSConfig.csv`
-- `result_yyyyMMddHHmmss_Services.csv`
-- `result_yyyyMMddHHmmss_Performance.csv`
-- `result_yyyyMMddHHmmss_Logs.csv`
-- `result_yyyyMMddHHmmss_Security.csv`
-- `result_yyyyMMddHHmmss_HighAvailability.csv`
-- `result_yyyyMMddHHmmss_ActiveDirectory.csv`
-- `result_yyyyMMddHHmmss_Virtualization.csv`
-- `result_yyyyMMddHHmmss_Inventory.csv`
+- `result_yyyyMMdd-HHmmss-fff-####-xxxxxx.json`
+- `result_yyyyMMdd-HHmmss-fff-####-xxxxxx.html`
+- `result_yyyyMMdd-HHmmss-fff-####-xxxxxx.csv` (요약)
+- `result_yyyyMMdd-HHmmss-fff-####-xxxxxx_Hardware.csv`
+- `result_yyyyMMdd-HHmmss-fff-####-xxxxxx_Network.csv`
+- `result_yyyyMMdd-HHmmss-fff-####-xxxxxx_OSConfig.csv`
+- `result_yyyyMMdd-HHmmss-fff-####-xxxxxx_Services.csv`
+- `result_yyyyMMdd-HHmmss-fff-####-xxxxxx_Performance.csv`
+- `result_yyyyMMdd-HHmmss-fff-####-xxxxxx_Logs.csv`
+- `result_yyyyMMdd-HHmmss-fff-####-xxxxxx_Security.csv`
+- `result_yyyyMMdd-HHmmss-fff-####-xxxxxx_HighAvailability.csv`
+- `result_yyyyMMdd-HHmmss-fff-####-xxxxxx_ActiveDirectory.csv`
+- `result_yyyyMMdd-HHmmss-fff-####-xxxxxx_Virtualization.csv`
+- `result_yyyyMMdd-HHmmss-fff-####-xxxxxx_Inventory.csv`
 
 ---
 
@@ -109,7 +109,7 @@
 ## 📊 출력 파일 구조
 
 ### HTML 출력
-- **메인 보고서**: `result_yyyyMMddHHmmss.html`
+- **메인 보고서**: `result_yyyyMMdd-HHmmss-fff-####-xxxxxx.html`
   - 모든 카테고리를 접을 수 있는 형식으로 표시
   - 색상 코딩, 반응형 디자인
   
@@ -119,17 +119,17 @@
   - `Log_Security.html`
 
 ### JSON 출력
-- **단일 파일**: `result_yyyyMMddHHmmss.json`
+- **단일 파일**: `result_yyyyMMdd-HHmmss-fff-####-xxxxxx.json`
   - 전체 시스템 정보를 계층 구조로 저장
   - Depth 5까지 중첩 객체 지원
 
 ### CSV 출력
-- **요약 파일**: `result_yyyyMMddHHmmss.csv`
+- **요약 파일**: `result_yyyyMMdd-HHmmss-fff-####-xxxxxx.csv`
   - 각 카테고리별 항목 수와 파일명 목록
   
 - **카테고리별 파일**: 
-  - `result_yyyyMMddHHmmss_Hardware.csv`
-  - `result_yyyyMMddHHmmss_Network.csv`
+  - `result_yyyyMMdd-HHmmss-fff-####-xxxxxx_Hardware.csv`
+  - `result_yyyyMMdd-HHmmss-fff-####-xxxxxx_Network.csv`
   - 등등...
   - 각 파일은 해당 카테고리의 데이터를 평탄화하여 저장
 
@@ -138,13 +138,13 @@
   - `Log_Application.csv`
   - `Log_Security.csv`
 
-- `result_yyyyMMddHHmmss.zip` (사용자가 `-Compress` 지정 시 생성)
+- `result_yyyyMMdd-HHmmss-fff-####-xxxxxx.zip` (사용자가 `-Compress` 지정 시 생성)
 
 ### 🔐 보안 암호화 (AES-256)
 `-Encrypt` 옵션 사용 시 모든 결과 파일은 암호화됩니다:
 - **AES-256 (PBKDF2 10만 회)**: 강력한 키 유도 기술을 적용하여 무차별 대입 공격을 방어합니다.
-- `result_yyyyMMddHHmmss.json.aes`
-- `result_yyyyMMddHHmmss.html.aes`
+- `result_yyyyMMdd-HHmmss-fff-####-xxxxxx.json.aes`
+- `result_yyyyMMdd-HHmmss-fff-####-xxxxxx.html.aes`
 - 암호화된 파일은 전용 도구(`utils/Decrypt-Results.ps1`)로만 복구 가능합니다.
 
 ### 🛡️ 스크립트 무결성 및 신뢰 (Authenticode)
@@ -371,7 +371,7 @@
 
 1. **ZIP 파일**: 모든 생성된 파일은 자동으로 ZIP으로 압축됩니다
 2. **파일 정리**: `-DebugMode` 없이 실행 시 중간 파일은 자동 삭제됩니다
-3. **타임스탬프**: 모든 파일명에 생성 시간이 포함됩니다 (`yyyyMMddHHmmss`)
+3. **타임스탬프**: 모든 파일명에 생성 시간이 포함됩니다 (`yyyyMMdd-HHmmss-fff-####-xxxxxx`)
 4. **인코딩**: 모든 텍스트 파일은 UTF-8 인코딩으로 저장됩니다
 5. **관리자 권한**: 일부 정보 수집을 위해 관리자 권한이 필요합니다
 
@@ -408,3 +408,4 @@ Invoke-Command -ComputerName Server01 -FilePath .\system_information_collector_f
 ## 📞 지원
 
 문제가 발생하거나 기능 요청이 있으시면 이슈를 등록해 주세요!
+
