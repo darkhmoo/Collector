@@ -396,11 +396,105 @@ class ParallelTimeoutResourceCleanupSmokeTest : BaseTest {
         return "Resource cleanup smoke verified"
     }
 }
+
+class EndInvokeExceptionStructuredResultTest : BaseTest {
+    EndInvokeExceptionStructuredResultTest() : base("EndInvoke Exception Structured Result", "EdgeCase-P0") {}
+
+    [string] Execute() {
+        $repoRoot = Join-Path $PSScriptRoot "..\.."
+        $resolvedRoot = (Resolve-Path -Path $repoRoot).Path
+
+        $tasks = @(
+            [PSCustomObject]@{
+                Key   = "Crash"
+                Name  = "1/1 Crash"
+                Block = $null
+            }
+        )
+
+        $result = Invoke-ParallelCollection -tasks $tasks -scriptRoot $resolvedRoot -taskTimeoutSeconds 3 -maxThreadsOverride 1
+        $entry = $result["Crash"]
+
+        if ($entry -isnot [PSCustomObject]) {
+            throw "Runspace exception result must be structured object."
+        }
+        foreach ($name in @("Data", "Status", "TimedOut", "ElapsedMs", "ModuleName", "ErrorMessage", "ErrorType", "StackTrace")) {
+            if ($entry.PSObject.Properties.Name -notcontains $name) {
+                throw "Runspace exception result missing property: $name"
+            }
+        }
+        if ($entry.Status -ne "RunspaceError") {
+            throw "Expected Status=RunspaceError, got: $($entry.Status)"
+        }
+        if ($entry.TimedOut) {
+            throw "Runspace exception must not be marked as timeout."
+        }
+        if ([string]::IsNullOrWhiteSpace($entry.ErrorMessage)) {
+            throw "Runspace exception ErrorMessage must not be empty."
+        }
+
+        return "EndInvoke exception structured result verified"
+    }
+}
+
+class EndInvokeExceptionIsolationTest : BaseTest {
+    EndInvokeExceptionIsolationTest() : base("EndInvoke Exception Isolation", "EdgeCase-P0") {}
+
+    [string] Execute() {
+        $repoRoot = Join-Path $PSScriptRoot "..\.."
+        $resolvedRoot = (Resolve-Path -Path $repoRoot).Path
+
+        $tasks = @(
+            [PSCustomObject]@{
+                Key   = "Good"
+                Name  = "1/2 Good"
+                Block = { "GOOD" }
+            },
+            [PSCustomObject]@{
+                Key   = "Crash"
+                Name  = "2/2 Crash"
+                Block = $null
+            }
+        )
+
+        $result = Invoke-ParallelCollection -tasks $tasks -scriptRoot $resolvedRoot -taskTimeoutSeconds 3 -maxThreadsOverride 2
+
+        if ($result["Good"].Data -ne "GOOD" -or $result["Good"].Status -ne "Completed") {
+            throw "Good task result must be preserved."
+        }
+        if ($result["Crash"].Status -ne "RunspaceError") {
+            throw "Crash task must be marked as RunspaceError."
+        }
+
+        return "EndInvoke exception isolation verified"
+    }
+}
+
+class MainScriptRunspaceExceptionSummaryContractTest : BaseTest {
+    MainScriptRunspaceExceptionSummaryContractTest() : base("Main Script Runspace Exception Summary Contract", "EdgeCase-P0") {}
+
+    [string] Execute() {
+        $mainScriptPath = Join-Path $PSScriptRoot "..\..\system_information_collector_for_windows.ps1"
+        if (-not (Test-Path -Path $mainScriptPath -PathType Leaf)) {
+            throw "Main script not found: $mainScriptPath"
+        }
+
+        $content = Get-Content -Path $mainScriptPath -Raw -Encoding UTF8
+        if ($content -notmatch '(?s)\.Status\s*-eq\s*"RunspaceError"') {
+            throw "Missing runspace exception status summary logic."
+        }
+        if ($content -notmatch '\[Summary\]\s+Runspace exceptions:') {
+            throw "Missing runspace exception summary log message."
+        }
+
+        return "Runspace exception summary contract found"
+    }
+}
 # SIG # Begin signature block
 # MIIFiwYJKoZIhvcNAQcCoIIFfDCCBXgCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUKU+BWuRPvft2YsSMYycl4Wtv
-# C8WgggMcMIIDGDCCAgCgAwIBAgIQGWEUqQpfT6JPYbwYRk6SXjANBgkqhkiG9w0B
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUiqVMr9FkyI6opIuO00azme6y
+# +ZmgggMcMIIDGDCCAgCgAwIBAgIQGWEUqQpfT6JPYbwYRk6SXjANBgkqhkiG9w0B
 # AQsFADAkMSIwIAYDVQQDDBlDb2xsZWN0b3ItSW50ZXJuYWwtU2lnbmVyMB4XDTI2
 # MDIxMzE2MzExMloXDTI3MDIxMzE2NTExMlowJDEiMCAGA1UEAwwZQ29sbGVjdG9y
 # LUludGVybmFsLVNpZ25lcjCCASIwDQYJKoZIhvcNAQEBBQADggEPADCCAQoCggEB
@@ -420,11 +514,11 @@ class ParallelTimeoutResourceCleanupSmokeTest : BaseTest {
 # JDEiMCAGA1UEAwwZQ29sbGVjdG9yLUludGVybmFsLVNpZ25lcgIQGWEUqQpfT6JP
 # YbwYRk6SXjAJBgUrDgMCGgUAoHgwGAYKKwYBBAGCNwIBDDEKMAigAoAAoQKAADAZ
 # BgkqhkiG9w0BCQMxDAYKKwYBBAGCNwIBBDAcBgorBgEEAYI3AgELMQ4wDAYKKwYB
-# BAGCNwIBFTAjBgkqhkiG9w0BCQQxFgQUE8NxiCNddh86PX5lMfDNPK4VxHEwDQYJ
-# KoZIhvcNAQEBBQAEggEAjj93fO+edDkofGUfM0X0ToYrZj5dnAnVebQzEXGNxdD6
-# vmH/DMDuP9sp0Sr4NkuCCd6wZYcSlKNQgHU27RGhU8dJyWWcH1xpmyXtl8bT/Ycx
-# EvuWvQLxHz+H/DmkdM5zmuunA7IlEjs2A7fTwh5XCOZuq/YJYAN2SuBr1i3vo9kO
-# vs8YuG6xA02Sg1/tGEwC7ZS6ZVcyfCWQ73+5F6PM9Ila0Jv3w1Vp1AJoEPV0MZC1
-# Woki4PnyRIN3TaPAR9aAT9GgiqqsDJb9L44xHUpDj1ixaNaOOIM3Ic82vyH6Uak2
-# nJymAVUbDgsOnZWnWNRnAsi0JstLkAHJ8TlLkbBm3A==
+# BAGCNwIBFTAjBgkqhkiG9w0BCQQxFgQU8XzUTcQkemzq2uMxNWm+lftylbAwDQYJ
+# KoZIhvcNAQEBBQAEggEAzYWniW2A+XZ/26p/Gum29egqiAdpFYK6Kk+CZ/HfubfO
+# WkOAqLjI8CHrf08xbW/Jygs7CcqDeaEJWcTF5EVBxN4Qzg+70BoGqrgqOu1MzAjF
+# GCLVgsE+zXOcaBAYqSvj2j7M8/TuMxC74rckePl0Vn+W+QZNR+u633UwL4gXlj5W
+# Qvjfw5eG81BJHNYdIwc8ZMWlTV08+MckvQfxJWBbN2sBN9SvLxEkCgFzkU1qJx6g
+# HEyX5tHU0QOSe4T8kycuP5QCiEDjXxEQlW+DGG6y9h8p1qq+hSuXLGmkugSIAxXf
+# p0NVaKOtWNzN3TqBGfoIj8PHPyULZynwwC1AMbHsfA==
 # SIG # End signature block

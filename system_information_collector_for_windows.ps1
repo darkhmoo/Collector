@@ -253,6 +253,15 @@ try {
         $parallelResults = Invoke-ParallelCollection -tasks $parallelTasks -scriptRoot $PSScriptRoot -taskTimeoutSeconds $moduleTimeoutSeconds -maxThreadsOverride 1
     }
 
+    $runspaceExceptionCount = 0
+    foreach ($task in $parallelTasks) {
+        $resultEntry = $parallelResults[$task.Key]
+        if ($resultEntry -is [PSCustomObject] -and $resultEntry.PSObject.Properties.Name -contains "Status" -and $resultEntry.Status -eq "RunspaceError") {
+            $runspaceExceptionCount++
+        }
+    }
+    Write-Log -message "[Summary] Runspace exceptions: $runspaceExceptionCount" -color Yellow -level Info
+
     foreach ($task in $parallelTasks) {
         $key = $task.Key
         $taskResult = $parallelResults[$key]
@@ -337,8 +346,8 @@ if ($fatalError) {
 # SIG # Begin signature block
 # MIIFiwYJKoZIhvcNAQcCoIIFfDCCBXgCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUcKlsLQIWayKNRJi8ozeQ+Y8u
-# 0imgggMcMIIDGDCCAgCgAwIBAgIQGWEUqQpfT6JPYbwYRk6SXjANBgkqhkiG9w0B
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQU9uGZA5VkDuPLSDAcYYB1xeC4
+# 5kegggMcMIIDGDCCAgCgAwIBAgIQGWEUqQpfT6JPYbwYRk6SXjANBgkqhkiG9w0B
 # AQsFADAkMSIwIAYDVQQDDBlDb2xsZWN0b3ItSW50ZXJuYWwtU2lnbmVyMB4XDTI2
 # MDIxMzE2MzExMloXDTI3MDIxMzE2NTExMlowJDEiMCAGA1UEAwwZQ29sbGVjdG9y
 # LUludGVybmFsLVNpZ25lcjCCASIwDQYJKoZIhvcNAQEBBQADggEPADCCAQoCggEB
@@ -358,11 +367,11 @@ if ($fatalError) {
 # JDEiMCAGA1UEAwwZQ29sbGVjdG9yLUludGVybmFsLVNpZ25lcgIQGWEUqQpfT6JP
 # YbwYRk6SXjAJBgUrDgMCGgUAoHgwGAYKKwYBBAGCNwIBDDEKMAigAoAAoQKAADAZ
 # BgkqhkiG9w0BCQMxDAYKKwYBBAGCNwIBBDAcBgorBgEEAYI3AgELMQ4wDAYKKwYB
-# BAGCNwIBFTAjBgkqhkiG9w0BCQQxFgQUfyRnehWzbsG03kGKoEx7N98abCgwDQYJ
-# KoZIhvcNAQEBBQAEggEArMGwxrqaopKkROsbEOgMm0UJotCwJV/dlC3zHhmtWUtW
-# BHfuqFCnbHFd0xRwDsD9PZrnP/I7TB9HC4qvH2vqsJ6zmwOpJ9UBiLHXVm0npipT
-# vtKnz8M8DdLhIgxy7ok7Nt5YzBJdJ/8dhUsGnsfiH09aTzddDQWtgKdMWAMQHdRI
-# UhLsHdo8jOVlPOXjJMnktKnVLLFiCdOziJd0X5jnpUvejYSgD891SjwWnkCX+tli
-# ZjB1sp8T/rWRuSk4PElYx2RKdAmbqCBn6Ljjcrn7/7BkxwMSrICXGCyQ009B+n/U
-# Ut8J+H//cGu9En+0+7yyIMzl4zIqFVpV8oVlOW8X7g==
+# BAGCNwIBFTAjBgkqhkiG9w0BCQQxFgQUlHM4DlnWFh/T8FsXP9GLF6bwFA0wDQYJ
+# KoZIhvcNAQEBBQAEggEAI8Sd5VUwRzFsaMLj5FIGZvTiGTHKFWhF//3oamtIsKGU
+# xp0eoBAYAL9h0WAQ8whC4qDSU4tsR90uAfCzyYOmcf9/U/offZZIVFG22fUMNypB
+# Biwpo3M//UiEQ9ClkGjAAv2C+aD5l2cv0SJWPpehEXudufFUTIR3sZZnQlMEjkjk
+# tV0QzNzaVkGsq8Ak8/TKDb11zX5Yc0gkmwB1GeC2Nm53sAPoOx0PwWTKqPZrrjaz
+# fEGFC4cfUvyCi+B21HmD0XIu2mGeCDgeIYzL517vpzDXslIE/6ax/V07IdlyY2Wi
+# Q6pAgZ18sDZW+L567eBUIE8OzTA99AXCbKiY34mpnw==
 # SIG # End signature block

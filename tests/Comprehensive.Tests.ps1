@@ -62,6 +62,9 @@ $runner.AddTest([MainScriptSequentialTimeoutContractTest]::new())
 $runner.AddTest([ParallelTimeoutResultSchemaTest]::new())
 $runner.AddTest([ParallelTimeoutIsolationBehaviorTest]::new())
 $runner.AddTest([ParallelTimeoutResourceCleanupSmokeTest]::new())
+$runner.AddTest([EndInvokeExceptionStructuredResultTest]::new())
+$runner.AddTest([EndInvokeExceptionIsolationTest]::new())
+$runner.AddTest([MainScriptRunspaceExceptionSummaryContractTest]::new())
 
 # --- 3. Execution ---
 
@@ -75,8 +78,8 @@ $runner.ShowSummary()
 # SIG # Begin signature block
 # MIIFiwYJKoZIhvcNAQcCoIIFfDCCBXgCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUKUdsQ0MYrVXJPCknC9eNECT2
-# 8MWgggMcMIIDGDCCAgCgAwIBAgIQGWEUqQpfT6JPYbwYRk6SXjANBgkqhkiG9w0B
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUjEr9fcNP6sXQOIwWYoIkkmQz
+# qnygggMcMIIDGDCCAgCgAwIBAgIQGWEUqQpfT6JPYbwYRk6SXjANBgkqhkiG9w0B
 # AQsFADAkMSIwIAYDVQQDDBlDb2xsZWN0b3ItSW50ZXJuYWwtU2lnbmVyMB4XDTI2
 # MDIxMzE2MzExMloXDTI3MDIxMzE2NTExMlowJDEiMCAGA1UEAwwZQ29sbGVjdG9y
 # LUludGVybmFsLVNpZ25lcjCCASIwDQYJKoZIhvcNAQEBBQADggEPADCCAQoCggEB
@@ -96,11 +99,11 @@ $runner.ShowSummary()
 # JDEiMCAGA1UEAwwZQ29sbGVjdG9yLUludGVybmFsLVNpZ25lcgIQGWEUqQpfT6JP
 # YbwYRk6SXjAJBgUrDgMCGgUAoHgwGAYKKwYBBAGCNwIBDDEKMAigAoAAoQKAADAZ
 # BgkqhkiG9w0BCQMxDAYKKwYBBAGCNwIBBDAcBgorBgEEAYI3AgELMQ4wDAYKKwYB
-# BAGCNwIBFTAjBgkqhkiG9w0BCQQxFgQUHQ5yuoQGCKDeomdPoytpI5RCM6wwDQYJ
-# KoZIhvcNAQEBBQAEggEAeSIV8ZNNhhLRkxi14ZG7mxduOwpC3PdgoO+UbIg5pLHT
-# RoUuB1EP2IIh4pX+PZw6h55pmCmc59GNOD0qnxBmYYOwM/ZMTw3y+moy1+ytv9Sy
-# t3i6hLo06+fmcGK5nKawcOeeWjXMJYRbCW9nIh9yhoiXm++LQltCoFn8F4QSfLHk
-# 3bnRbL9gzLiAgk117haUhyJMHcGUE+OS71+/ZTvDoXfGn7pqGjCw+sXAXzyLc/XP
-# M+/E4N0AVEsn5OmaaY1QcdVE34k+VHjQiiVbrju9vvQhJBIstOJotB3dfBFoAJp5
-# nmmaz1S7Hv2lozSji4vlY3UrVmbyj5sirWePe2DF9w==
+# BAGCNwIBFTAjBgkqhkiG9w0BCQQxFgQUm4igMbA2xCVbsXr0O0StjQWOBrwwDQYJ
+# KoZIhvcNAQEBBQAEggEAK0swyMB23bZchKCHBdUxa1/2mm+qHxB7GdIXKZQ23uut
+# XbpgmwEJ156JdARkTSjDxI40kPGoK4wkdsG834+QmN+iZhlRF0tb7frjqQYLKdhA
+# gMGObBLMAX6rq0XAunMjGezaJGNHRax3KSEACx/E8d3rHGTcf7PG/YhDZ0hYlBXb
+# bNJDHD4zsIeIDZb1Nq6+UJDuOzexFIduTxLX5Y530rlXH2mSVKB0xdqK2PRM3eQk
+# zBcCmGmNsiLuRn6hg82kf+QraIRvGc4u1/ng/mbPUGP19WGHJGXJDYm0Vyxima+5
+# S3/JKDKFbhRDWaOsOkqziR5qYMocw5ZXy6/Ur+R10A==
 # SIG # End signature block

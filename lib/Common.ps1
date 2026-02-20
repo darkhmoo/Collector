@@ -385,6 +385,60 @@ function Invoke-ParallelCollection {
     
     $results = [ordered]@{}
     $powershells = @()
+    $runspaceErrorCount = 0
+
+    $newRunspaceErrorResult = {
+        param(
+            [string]$moduleName,
+            [object]$errorRecord,
+            [string]$fallbackMessage,
+            [int]$elapsedMs
+        )
+
+        $errorMessage = $fallbackMessage
+        $errorType = "System.Exception"
+        $stackTrace = ""
+
+        if ($errorRecord) {
+            $errorException = $null
+            if ($errorRecord.PSObject.Properties.Name -contains "Exception") {
+                $errorException = $errorRecord.Exception
+            }
+
+            if ($errorException) {
+                if (-not [string]::IsNullOrWhiteSpace($errorException.Message)) {
+                    $errorMessage = $errorException.Message
+                }
+                if ($errorException.GetType()) {
+                    $errorType = $errorException.GetType().FullName
+                }
+                if (-not [string]::IsNullOrWhiteSpace($errorException.StackTrace)) {
+                    $stackTrace = $errorException.StackTrace
+                }
+            }
+
+            if ([string]::IsNullOrWhiteSpace($stackTrace) -and $errorRecord.PSObject.Properties.Name -contains "ScriptStackTrace" -and -not [string]::IsNullOrWhiteSpace($errorRecord.ScriptStackTrace)) {
+                $stackTrace = $errorRecord.ScriptStackTrace
+            }
+        }
+
+        if ([string]::IsNullOrWhiteSpace($errorMessage)) {
+            $errorMessage = "Unknown runspace error."
+        }
+
+        return [PSCustomObject]@{
+            Data           = "Error: $errorMessage"
+            StepTimings    = @()
+            GeneratedFiles = @()
+            Status         = "RunspaceError"
+            TimedOut       = $false
+            ElapsedMs      = [Math]::Max(0, [int]$elapsedMs)
+            ModuleName     = $moduleName
+            ErrorMessage   = $errorMessage
+            ErrorType      = $errorType
+            StackTrace     = $stackTrace
+        }
+    }
     
     # 1. RunspacePool Setup
     if ($maxThreadsOverride -gt 0) {
@@ -400,6 +454,15 @@ function Invoke-ParallelCollection {
     try {
         # 2. Launch Tasks
         foreach ($task in $tasks) {
+            if ($task.Block -isnot [scriptblock]) {
+                $runspaceErrorCount++
+                $blockType = if ($null -eq $task.Block) { "null" } else { $task.Block.GetType().FullName }
+                $errorMessage = "Invalid task block. Expected ScriptBlock but got '$blockType'."
+                $results[$task.Key] = & $newRunspaceErrorResult -moduleName $task.Name -errorRecord $null -fallbackMessage $errorMessage -elapsedMs 0
+                Write-Log -message "[Parallel] [RunspaceError] $($task.Name): $errorMessage" -color Red -level Error
+                continue
+            }
+
             $ps = [powershell]::Create().AddScript({
                     param($taskName, $collectionBlock, $rootPath, $debugMode, $debugLog)
                 
@@ -436,64 +499,95 @@ function Invoke-ParallelCollection {
 
         # 3. Wait and Collect Results
         foreach ($taskItem in $powershells) {
-            Write-Log -message "[Parallel] Waiting for $($taskItem.Name)..." -color DarkGray -level Debug
-            
-            # Wait for handle with timeout protection
-            $waitCount = 0
-            $maxWaitCount = [Math]::Max(1, [int][Math]::Ceiling(($taskTimeoutSeconds * 1000) / 100))
-            While (-not $taskItem.Handle.IsCompleted -and $waitCount -lt $maxWaitCount) { 
-                Start-Sleep -Milliseconds 100 
-                $waitCount++
-            }
-            
-            if ($taskItem.Handle.IsCompleted) {
-                $rawResult = $taskItem.PowerShell.EndInvoke($taskItem.Handle)
-                $firstResult = if ($rawResult -is [System.Collections.IList] -and $rawResult.Count -gt 0) { $rawResult[0] } else { $null }
-
-                if ($firstResult -is [PSCustomObject] -and $firstResult.PSObject.Properties.Name -contains "Data") {
-                    if ($firstResult.PSObject.Properties.Name -notcontains "Status") {
-                        $firstResult | Add-Member -NotePropertyName Status -NotePropertyValue "Completed"
+            try {
+                Write-Log -message "[Parallel] Waiting for $($taskItem.Name)..." -color DarkGray -level Debug
+                
+                # Wait for handle with timeout protection
+                $waitCount = 0
+                $maxWaitCount = [Math]::Max(1, [int][Math]::Ceiling(($taskTimeoutSeconds * 1000) / 100))
+                While (-not $taskItem.Handle.IsCompleted -and $waitCount -lt $maxWaitCount) { 
+                    Start-Sleep -Milliseconds 100 
+                    $waitCount++
+                }
+                
+                if ($taskItem.Handle.IsCompleted) {
+                    $rawResult = $null
+                    try {
+                        $rawResult = $taskItem.PowerShell.EndInvoke($taskItem.Handle)
                     }
-                    if ($firstResult.PSObject.Properties.Name -notcontains "TimedOut") {
-                        $firstResult | Add-Member -NotePropertyName TimedOut -NotePropertyValue $false
-                    }
-                    if ($firstResult.PSObject.Properties.Name -notcontains "ElapsedMs") {
-                        $elapsedMs = 0
-                        if ($firstResult.PSObject.Properties.Name -contains "StepTimings" -and $firstResult.StepTimings) {
-                            $elapsedMs = ($firstResult.StepTimings | Measure-Object -Property DurationMs -Sum).Sum
-                            if ($null -eq $elapsedMs) { $elapsedMs = 0 }
+                    catch {
+                        $runspaceErrorCount++
+                        $results[$taskItem.Key] = & $newRunspaceErrorResult -moduleName $taskItem.Name -errorRecord $_ -fallbackMessage $_.Exception.Message -elapsedMs 0
+                        Write-Log -message "[Parallel] [RunspaceError] $($taskItem.Name): $($_.Exception.Message)" -color Red -level Error
+                        if ($script:DebugMode -and -not [string]::IsNullOrWhiteSpace($_.ScriptStackTrace)) {
+                            Write-Log -message "[Parallel] [RunspaceError] Stack: $($_.ScriptStackTrace)" -color DarkRed -level Debug
                         }
-                        $firstResult | Add-Member -NotePropertyName ElapsedMs -NotePropertyValue ([int]$elapsedMs)
+                        continue
                     }
-                    $results[$taskItem.Key] = $firstResult
+
+                    $firstResult = if ($rawResult -is [System.Collections.IList] -and $rawResult.Count -gt 0) { $rawResult[0] } else { $null }
+
+                    if ($firstResult -is [PSCustomObject] -and $firstResult.PSObject.Properties.Name -contains "Data") {
+                        if ($firstResult.PSObject.Properties.Name -notcontains "Status") {
+                            $firstResult | Add-Member -NotePropertyName Status -NotePropertyValue "Completed"
+                        }
+                        if ($firstResult.PSObject.Properties.Name -notcontains "TimedOut") {
+                            $firstResult | Add-Member -NotePropertyName TimedOut -NotePropertyValue $false
+                        }
+                        if ($firstResult.PSObject.Properties.Name -notcontains "ElapsedMs") {
+                            $elapsedMs = 0
+                            if ($firstResult.PSObject.Properties.Name -contains "StepTimings" -and $firstResult.StepTimings) {
+                                $elapsedMs = ($firstResult.StepTimings | Measure-Object -Property DurationMs -Sum).Sum
+                                if ($null -eq $elapsedMs) { $elapsedMs = 0 }
+                            }
+                            $firstResult | Add-Member -NotePropertyName ElapsedMs -NotePropertyValue ([int]$elapsedMs)
+                        }
+                        $results[$taskItem.Key] = $firstResult
+                    }
+                    else {
+                        $streamError = $null
+                        try {
+                            if ($taskItem.PowerShell.Streams.Error.Count -gt 0) {
+                                $streamError = $taskItem.PowerShell.Streams.Error[0]
+                            }
+                        }
+                        catch {}
+
+                        if ($streamError) {
+                            $runspaceErrorCount++
+                            $results[$taskItem.Key] = & $newRunspaceErrorResult -moduleName $taskItem.Name -errorRecord $streamError -fallbackMessage $streamError.Exception.Message -elapsedMs 0
+                            Write-Log -message "[Parallel] [RunspaceError] $($taskItem.Name): $($streamError.Exception.Message)" -color Red -level Error
+                        }
+                        else {
+                            $results[$taskItem.Key] = [PSCustomObject]@{
+                                Data           = $firstResult
+                                StepTimings    = @()
+                                GeneratedFiles = @()
+                                Status         = "Completed"
+                                TimedOut       = $false
+                                ElapsedMs      = 0
+                            }
+                        }
+                    }
+                    Write-Log -message "[Parallel] $($taskItem.Name) completed successfully." -color DarkGray -level Debug
                 }
                 else {
                     $results[$taskItem.Key] = [PSCustomObject]@{
-                        Data           = $firstResult
+                        Data           = "Error: Task timed out after ${taskTimeoutSeconds}s"
                         StepTimings    = @()
                         GeneratedFiles = @()
-                        Status         = "Completed"
-                        TimedOut       = $false
-                        ElapsedMs      = 0
+                        Status         = "TimedOut"
+                        TimedOut       = $true
+                        ElapsedMs      = ($taskTimeoutSeconds * 1000)
                     }
+                    Write-Log -message "[Parallel] $($taskItem.Name) timed out or failed to complete." -color Red -level Error
+                    try { $taskItem.PowerShell.Stop() } catch {}
                 }
-                Write-Log -message "[Parallel] $($taskItem.Name) completed successfully." -color DarkGray -level Debug
             }
-            else {
-                $results[$taskItem.Key] = [PSCustomObject]@{
-                    Data           = "Error: Task timed out after ${taskTimeoutSeconds}s"
-                    StepTimings    = @()
-                    GeneratedFiles = @()
-                    Status         = "TimedOut"
-                    TimedOut       = $true
-                    ElapsedMs      = ($taskTimeoutSeconds * 1000)
-                }
-                Write-Log -message "[Parallel] $($taskItem.Name) timed out or failed to complete." -color Red -level Error
-                try { $taskItem.PowerShell.Stop() } catch {}
+            finally {
+                # Explicit disposal for each task to free resources immediately
+                try { $taskItem.PowerShell.Dispose() } catch {}
             }
-            
-            # Explicit disposal for each task to free resources immediately
-            try { $taskItem.PowerShell.Dispose() } catch {}
         }
     }
     catch {
@@ -508,6 +602,10 @@ function Invoke-ParallelCollection {
         # Audit Fix: Explicitly trigger GC to free up memory from closed runspaces
         [System.GC]::Collect()
         [System.GC]::WaitForPendingFinalizers()
+    }
+
+    if ($runspaceErrorCount -gt 0) {
+        Write-Log -message "[Parallel] Runspace exceptions captured: $runspaceErrorCount" -color Yellow -level Warning
     }
 
     Write-Log -message "[Parallel] Parallel collection complete." -color Green -level Info
@@ -563,8 +661,8 @@ function Open-LocalizedDoc {
 # SIG # Begin signature block
 # MIIFiwYJKoZIhvcNAQcCoIIFfDCCBXgCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQULZIxvep9WEW4iRHCLS9m31B6
-# qKagggMcMIIDGDCCAgCgAwIBAgIQGWEUqQpfT6JPYbwYRk6SXjANBgkqhkiG9w0B
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUvdT40gSMQM5fsnDucJtSuhBc
+# PqagggMcMIIDGDCCAgCgAwIBAgIQGWEUqQpfT6JPYbwYRk6SXjANBgkqhkiG9w0B
 # AQsFADAkMSIwIAYDVQQDDBlDb2xsZWN0b3ItSW50ZXJuYWwtU2lnbmVyMB4XDTI2
 # MDIxMzE2MzExMloXDTI3MDIxMzE2NTExMlowJDEiMCAGA1UEAwwZQ29sbGVjdG9y
 # LUludGVybmFsLVNpZ25lcjCCASIwDQYJKoZIhvcNAQEBBQADggEPADCCAQoCggEB
@@ -584,11 +682,11 @@ function Open-LocalizedDoc {
 # JDEiMCAGA1UEAwwZQ29sbGVjdG9yLUludGVybmFsLVNpZ25lcgIQGWEUqQpfT6JP
 # YbwYRk6SXjAJBgUrDgMCGgUAoHgwGAYKKwYBBAGCNwIBDDEKMAigAoAAoQKAADAZ
 # BgkqhkiG9w0BCQMxDAYKKwYBBAGCNwIBBDAcBgorBgEEAYI3AgELMQ4wDAYKKwYB
-# BAGCNwIBFTAjBgkqhkiG9w0BCQQxFgQUn52Ko3c0RdkGD/gd8fmgZWxbLb8wDQYJ
-# KoZIhvcNAQEBBQAEggEAKmyPmBg3M+e0fb2txLaupxlCZG4BbjT2D1J04VTPbvQ5
-# ichwKdaAxNU+2lr2j6xyAcVgbPlqeSrkw4RQy2arvZCJx9eCH/mj6PdwbuiESE6z
-# pxJGA+rKkCwMiHsO7nPCZJTSKXt1v5fD6j0NRU71jBPDo+ieNvrbrHLGIv8aXXsn
-# uTQWM1g1yZIIjCQ9Y0eB/Yz1E4p/gdrozOYzWVjgkMzIQAV9Dnx1BbhN+wzYxHLe
-# ykAoSWZk+jYaHduYYSLdgPXqW0jQA1vR2z1NRzF00tjHW5p7GmLrgU8A02bEXGQa
-# GXLK4qi/UkMnO/5CRbanANwZJE3YKpLNzNr2B/Gvxw==
+# BAGCNwIBFTAjBgkqhkiG9w0BCQQxFgQUoD6e5XtURAo3ivez2/vpxh1sg/4wDQYJ
+# KoZIhvcNAQEBBQAEggEALE7Re6VsF7z5a5UXzc40ENpT5uOTKb2XJbgozuOQ3qDu
+# zJd1rVlKnSA1uXJw4aDE2gPe0ro+j6uKgGIbgXwbHTCfFaFsEkwxJyx4Zes4Wnxw
+# QkqwlqEtRHNXYpm9CP3xeQjZjF1VSN2laCF/idDzzAZ/4gPUZU9jgKKd/ec/aD6x
+# r6GVJL5z3fq1mZT52X9MzgU5p3u2nnFXNk7x3Zr0lX0apJLtoWEKLpgV2rykoIeG
+# NhHmBLxIxRWXSzmb6eqmWJ0qYJVu9x64mTk969Af3FemB3vGalU+MrCtcx5pEaQ8
+# 6d1rWGzQKZytKdEJK2xo9kuZZpIdEr3aMpLAnKKqqQ==
 # SIG # End signature block
