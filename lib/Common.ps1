@@ -447,11 +447,47 @@ function Invoke-ParallelCollection {
             }
             
             if ($taskItem.Handle.IsCompleted) {
-                $results[$taskItem.Key] = $taskItem.PowerShell.EndInvoke($taskItem.Handle)[0]
+                $rawResult = $taskItem.PowerShell.EndInvoke($taskItem.Handle)
+                $firstResult = if ($rawResult -is [System.Collections.IList] -and $rawResult.Count -gt 0) { $rawResult[0] } else { $null }
+
+                if ($firstResult -is [PSCustomObject] -and $firstResult.PSObject.Properties.Name -contains "Data") {
+                    if ($firstResult.PSObject.Properties.Name -notcontains "Status") {
+                        $firstResult | Add-Member -NotePropertyName Status -NotePropertyValue "Completed"
+                    }
+                    if ($firstResult.PSObject.Properties.Name -notcontains "TimedOut") {
+                        $firstResult | Add-Member -NotePropertyName TimedOut -NotePropertyValue $false
+                    }
+                    if ($firstResult.PSObject.Properties.Name -notcontains "ElapsedMs") {
+                        $elapsedMs = 0
+                        if ($firstResult.PSObject.Properties.Name -contains "StepTimings" -and $firstResult.StepTimings) {
+                            $elapsedMs = ($firstResult.StepTimings | Measure-Object -Property DurationMs -Sum).Sum
+                            if ($null -eq $elapsedMs) { $elapsedMs = 0 }
+                        }
+                        $firstResult | Add-Member -NotePropertyName ElapsedMs -NotePropertyValue ([int]$elapsedMs)
+                    }
+                    $results[$taskItem.Key] = $firstResult
+                }
+                else {
+                    $results[$taskItem.Key] = [PSCustomObject]@{
+                        Data           = $firstResult
+                        StepTimings    = @()
+                        GeneratedFiles = @()
+                        Status         = "Completed"
+                        TimedOut       = $false
+                        ElapsedMs      = 0
+                    }
+                }
                 Write-Log -message "[Parallel] $($taskItem.Name) completed successfully." -color DarkGray -level Debug
             }
             else {
-                $results[$taskItem.Key] = "Error: Task timed out after ${taskTimeoutSeconds}s"
+                $results[$taskItem.Key] = [PSCustomObject]@{
+                    Data           = "Error: Task timed out after ${taskTimeoutSeconds}s"
+                    StepTimings    = @()
+                    GeneratedFiles = @()
+                    Status         = "TimedOut"
+                    TimedOut       = $true
+                    ElapsedMs      = ($taskTimeoutSeconds * 1000)
+                }
                 Write-Log -message "[Parallel] $($taskItem.Name) timed out or failed to complete." -color Red -level Error
                 try { $taskItem.PowerShell.Stop() } catch {}
             }
@@ -527,8 +563,8 @@ function Open-LocalizedDoc {
 # SIG # Begin signature block
 # MIIFiwYJKoZIhvcNAQcCoIIFfDCCBXgCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQU+AR+k/Hk34UE4RWryRyQ4Hb1
-# PZmgggMcMIIDGDCCAgCgAwIBAgIQGWEUqQpfT6JPYbwYRk6SXjANBgkqhkiG9w0B
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQULZIxvep9WEW4iRHCLS9m31B6
+# qKagggMcMIIDGDCCAgCgAwIBAgIQGWEUqQpfT6JPYbwYRk6SXjANBgkqhkiG9w0B
 # AQsFADAkMSIwIAYDVQQDDBlDb2xsZWN0b3ItSW50ZXJuYWwtU2lnbmVyMB4XDTI2
 # MDIxMzE2MzExMloXDTI3MDIxMzE2NTExMlowJDEiMCAGA1UEAwwZQ29sbGVjdG9y
 # LUludGVybmFsLVNpZ25lcjCCASIwDQYJKoZIhvcNAQEBBQADggEPADCCAQoCggEB
@@ -548,11 +584,11 @@ function Open-LocalizedDoc {
 # JDEiMCAGA1UEAwwZQ29sbGVjdG9yLUludGVybmFsLVNpZ25lcgIQGWEUqQpfT6JP
 # YbwYRk6SXjAJBgUrDgMCGgUAoHgwGAYKKwYBBAGCNwIBDDEKMAigAoAAoQKAADAZ
 # BgkqhkiG9w0BCQMxDAYKKwYBBAGCNwIBBDAcBgorBgEEAYI3AgELMQ4wDAYKKwYB
-# BAGCNwIBFTAjBgkqhkiG9w0BCQQxFgQUJtB6zTY8HkZFV8lvHLUF2GAAfbQwDQYJ
-# KoZIhvcNAQEBBQAEggEADCHywN25tBqI3aa2Eivw5f90jp2TWbNwNC22+iPQrabm
-# QEEU0m5ivyxK7C2wxmMZk2IO0PmiRWEqOC3OczkHFysgJF9OQcbRks+umatUO26V
-# MaGG3/xOcQ99Uue++P8w/QiPepOw2YHIAG1fmuDLJiubPEFhlOrEJCGhlJv+7p6+
-# k5ojSH30VXoQJwHPngh70PC1tGSZt9stvBJy4VE22d+0EDlifmROwp09ROwtZheA
-# TwyzMtp8PQM32ng3k2I8yHKTBxTzqMfO32mUV0eDFNpx5ZzcEMqgw+3NGYrZcvzc
-# j80ke/gS0NLulZPRIisk3fqdaWCfDFD45dl9qGsQbA==
+# BAGCNwIBFTAjBgkqhkiG9w0BCQQxFgQUn52Ko3c0RdkGD/gd8fmgZWxbLb8wDQYJ
+# KoZIhvcNAQEBBQAEggEAKmyPmBg3M+e0fb2txLaupxlCZG4BbjT2D1J04VTPbvQ5
+# ichwKdaAxNU+2lr2j6xyAcVgbPlqeSrkw4RQy2arvZCJx9eCH/mj6PdwbuiESE6z
+# pxJGA+rKkCwMiHsO7nPCZJTSKXt1v5fD6j0NRU71jBPDo+ieNvrbrHLGIv8aXXsn
+# uTQWM1g1yZIIjCQ9Y0eB/Yz1E4p/gdrozOYzWVjgkMzIQAV9Dnx1BbhN+wzYxHLe
+# ykAoSWZk+jYaHduYYSLdgPXqW0jQA1vR2z1NRzF00tjHW5p7GmLrgU8A02bEXGQa
+# GXLK4qi/UkMnO/5CRbanANwZJE3YKpLNzNr2B/Gvxw==
 # SIG # End signature block

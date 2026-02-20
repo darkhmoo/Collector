@@ -284,11 +284,123 @@ class MainScriptSequentialTimeoutContractTest : BaseTest {
         return "Sequential timeout contract found"
     }
 }
+
+class ParallelTimeoutResultSchemaTest : BaseTest {
+    ParallelTimeoutResultSchemaTest() : base("Parallel Timeout Result Schema", "EdgeCase-P0") {}
+
+    [string] Execute() {
+        $repoRoot = Join-Path $PSScriptRoot "..\.."
+        $resolvedRoot = (Resolve-Path -Path $repoRoot).Path
+
+        $tasks = @(
+            [PSCustomObject]@{
+                Key   = "Hang"
+                Name  = "1/1 Hang"
+                Block = { Start-Sleep -Seconds 2; "OK" }
+            }
+        )
+
+        $result = Invoke-ParallelCollection -tasks $tasks -scriptRoot $resolvedRoot -taskTimeoutSeconds 1 -maxThreadsOverride 1
+        $entry = $result["Hang"]
+
+        if ($entry -isnot [PSCustomObject]) {
+            throw "Timeout result must be a structured object."
+        }
+        foreach ($name in @("Data", "Status", "TimedOut", "ElapsedMs")) {
+            if ($entry.PSObject.Properties.Name -notcontains $name) {
+                throw "Timeout result missing property: $name"
+            }
+        }
+        if ($entry.Status -ne "TimedOut" -or -not $entry.TimedOut) {
+            throw "Timeout status fields mismatch. Status=$($entry.Status), TimedOut=$($entry.TimedOut)"
+        }
+        if ($entry.Data -notlike "*timed out after 1s*") {
+            throw "Timeout data message mismatch: $($entry.Data)"
+        }
+
+        return "Timeout schema verified"
+    }
+}
+
+class ParallelTimeoutIsolationBehaviorTest : BaseTest {
+    ParallelTimeoutIsolationBehaviorTest() : base("Parallel Timeout Isolation Behavior", "EdgeCase-P0") {}
+
+    [string] Execute() {
+        $repoRoot = Join-Path $PSScriptRoot "..\.."
+        $resolvedRoot = (Resolve-Path -Path $repoRoot).Path
+
+        $tasks = @(
+            [PSCustomObject]@{
+                Key   = "FastA"
+                Name  = "1/3 FastA"
+                Block = { "A" }
+            },
+            [PSCustomObject]@{
+                Key   = "Hang"
+                Name  = "2/3 Hang"
+                Block = { Start-Sleep -Seconds 2; "SLOW" }
+            },
+            [PSCustomObject]@{
+                Key   = "FastB"
+                Name  = "3/3 FastB"
+                Block = { "B" }
+            }
+        )
+
+        $result = Invoke-ParallelCollection -tasks $tasks -scriptRoot $resolvedRoot -taskTimeoutSeconds 1 -maxThreadsOverride 3
+
+        if ($result["FastA"].Data -ne "A") { throw "FastA result mismatch." }
+        if ($result["FastB"].Data -ne "B") { throw "FastB result mismatch." }
+        if ($result["Hang"].Status -ne "TimedOut") { throw "Hang task must be timed out." }
+
+        return "Isolation behavior verified"
+    }
+}
+
+class ParallelTimeoutResourceCleanupSmokeTest : BaseTest {
+    ParallelTimeoutResourceCleanupSmokeTest() : base("Parallel Timeout Resource Cleanup Smoke", "EdgeCase-P0") {}
+
+    [string] Execute() {
+        $repoRoot = Join-Path $PSScriptRoot "..\.."
+        $resolvedRoot = (Resolve-Path -Path $repoRoot).Path
+
+        for ($i = 0; $i -lt 2; $i++) {
+            $timeoutTasks = @(
+                [PSCustomObject]@{
+                    Key   = "Hang"
+                    Name  = "1/1 Hang"
+                    Block = { Start-Sleep -Seconds 2; "X" }
+                }
+            )
+            $null = Invoke-ParallelCollection -tasks $timeoutTasks -scriptRoot $resolvedRoot -taskTimeoutSeconds 1 -maxThreadsOverride 1
+        }
+
+        $normalTasks = @(
+            [PSCustomObject]@{
+                Key   = "A"
+                Name  = "1/2 A"
+                Block = { "A" }
+            },
+            [PSCustomObject]@{
+                Key   = "B"
+                Name  = "2/2 B"
+                Block = { "B" }
+            }
+        )
+        $result = Invoke-ParallelCollection -tasks $normalTasks -scriptRoot $resolvedRoot -taskTimeoutSeconds 3 -maxThreadsOverride 2
+
+        if ($result["A"].Data -ne "A" -or $result["B"].Data -ne "B") {
+            throw "Post-timeout normal execution failed."
+        }
+
+        return "Resource cleanup smoke verified"
+    }
+}
 # SIG # Begin signature block
 # MIIFiwYJKoZIhvcNAQcCoIIFfDCCBXgCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUkyuTC1QQWTHtG3c1P94AYbzW
-# dwygggMcMIIDGDCCAgCgAwIBAgIQGWEUqQpfT6JPYbwYRk6SXjANBgkqhkiG9w0B
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUKU+BWuRPvft2YsSMYycl4Wtv
+# C8WgggMcMIIDGDCCAgCgAwIBAgIQGWEUqQpfT6JPYbwYRk6SXjANBgkqhkiG9w0B
 # AQsFADAkMSIwIAYDVQQDDBlDb2xsZWN0b3ItSW50ZXJuYWwtU2lnbmVyMB4XDTI2
 # MDIxMzE2MzExMloXDTI3MDIxMzE2NTExMlowJDEiMCAGA1UEAwwZQ29sbGVjdG9y
 # LUludGVybmFsLVNpZ25lcjCCASIwDQYJKoZIhvcNAQEBBQADggEPADCCAQoCggEB
@@ -308,11 +420,11 @@ class MainScriptSequentialTimeoutContractTest : BaseTest {
 # JDEiMCAGA1UEAwwZQ29sbGVjdG9yLUludGVybmFsLVNpZ25lcgIQGWEUqQpfT6JP
 # YbwYRk6SXjAJBgUrDgMCGgUAoHgwGAYKKwYBBAGCNwIBDDEKMAigAoAAoQKAADAZ
 # BgkqhkiG9w0BCQMxDAYKKwYBBAGCNwIBBDAcBgorBgEEAYI3AgELMQ4wDAYKKwYB
-# BAGCNwIBFTAjBgkqhkiG9w0BCQQxFgQUEJNUquFHL5uxpUMUdOZLun1akLEwDQYJ
-# KoZIhvcNAQEBBQAEggEAoIRqRQJr38uOxvG6XI1ALv2G2OOMk83aYL3oAIKOb9fZ
-# 1qKSNt0an4Ne4PSc9Syj8iwLhHVYVXY9N2JwfwQaUedAJSSUid2JVe7Xkx4Kk8G5
-# e4n0mOeVssWTb4KfArYB34RfzMgUrFq87mrLvYLwPKW7bTdoVgV6ZGFtrLpvb14s
-# a0kdDqiBke2t0imbKwZvwGrN2LRQ+AFdBRads+VmFXwkU1AJUecC/mXDOnCpVGcf
-# ohgcs3Rla/Kr0sECCmbV93l1w+oRjd3ICFGNNgW+H7iuUFaJWrSBcP9X/PZHSzyy
-# 6GTgY1ZijKV7VqlItjp7RwcdBhnIvA6q90RC0srnfQ==
+# BAGCNwIBFTAjBgkqhkiG9w0BCQQxFgQUE8NxiCNddh86PX5lMfDNPK4VxHEwDQYJ
+# KoZIhvcNAQEBBQAEggEAjj93fO+edDkofGUfM0X0ToYrZj5dnAnVebQzEXGNxdD6
+# vmH/DMDuP9sp0Sr4NkuCCd6wZYcSlKNQgHU27RGhU8dJyWWcH1xpmyXtl8bT/Ycx
+# EvuWvQLxHz+H/DmkdM5zmuunA7IlEjs2A7fTwh5XCOZuq/YJYAN2SuBr1i3vo9kO
+# vs8YuG6xA02Sg1/tGEwC7ZS6ZVcyfCWQ73+5F6PM9Ila0Jv3w1Vp1AJoEPV0MZC1
+# Woki4PnyRIN3TaPAR9aAT9GgiqqsDJb9L44xHUpDj1ixaNaOOIM3Ic82vyH6Uak2
+# nJymAVUbDgsOnZWnWNRnAsi0JstLkAHJ8TlLkbBm3A==
 # SIG # End signature block
