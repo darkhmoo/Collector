@@ -156,6 +156,16 @@
    .\utils\Setup-Security.ps1
    ```
 3. **서명 확인**: 서명이 올바르지 않은 스크립트 발견 시 보안 경고(`Security Warning`)와 함께 로드가 거부됩니다.
+4. **서명 운영 정책**:
+   - 기본: 변경된 `.ps1` 파일만 재서명
+   - 전체 일괄 재서명: 인증서 교체/갱신, 대규모 개행·인코딩 변경, 릴리스 직전 무결성 점검 시
+5. **검증 명령**: 커밋 전 `Get-AuthenticodeSignature` 결과가 `Valid`인지 확인하십시오.
+   ```powershell
+   Get-ChildItem -Recurse -File -Filter *.ps1 | ForEach-Object {
+       $sig = Get-AuthenticodeSignature -FilePath $_.FullName
+       [PSCustomObject]@{ Path = $_.FullName; Status = $sig.Status }
+   } | Where-Object { $_.Status -ne 'Valid' }
+   ```
 
 ---
 

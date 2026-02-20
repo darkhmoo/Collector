@@ -156,6 +156,16 @@ This tool utilizes digital signatures to prevent the execution of unauthorized s
    .\utils\Setup-Security.ps1
    ```
 3. **Signature Verification**: If a script with an invalid signature is found, a `Security Warning` is issued, and loading is denied.
+4. **Signing Policy**:
+   - Default: Re-sign only changed `.ps1` files.
+   - Bulk re-sign all scripts only for certificate rotation/renewal, large line-ending or encoding changes, and pre-release integrity sweeps.
+5. **Verification Command**: Before commit, verify `Get-AuthenticodeSignature` returns `Valid`.
+   ```powershell
+   Get-ChildItem -Recurse -File -Filter *.ps1 | ForEach-Object {
+       $sig = Get-AuthenticodeSignature -FilePath $_.FullName
+       [PSCustomObject]@{ Path = $_.FullName; Status = $sig.Status }
+   } | Where-Object { $_.Status -ne 'Valid' }
+   ```
 
 ---
 

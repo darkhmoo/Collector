@@ -70,6 +70,7 @@
 
 ## 🛠️ 기술 표준 및 설계 원칙
 - **PowerShell Clean Code**: 네이밍, 함수 설계, 부작용 격리 규칙을 따릅니다 (참조: [CLEAN_CODE_GUIDE.md](docs/ko-KR/CLEAN_CODE_GUIDE.md)).
+- **서명 운영 정책(Authenticode)**: 기본은 변경된 `.ps1` 파일만 재서명하고, 인증서 교체/갱신·대규모 개행/인코딩 변경·릴리스 직전에는 전체 일괄 재서명을 수행합니다.
 - **방어적 프로그래밍**: 일부 모듈이나 Cmdlet이 없는 환경에서도 수집이 중단되지 않도록 설계되었습니다.
 
 ## ⚠️ 운영 시 주의사항
@@ -136,6 +137,7 @@ Beyond simple asset inventory, this tool supports:
 ## 🛠️ Technical Standards & Design Principles
 - **Class-based Provider Model**: Ensures consistency across modules via an object-oriented structure inheriting from `BaseCollector`.
 - **Dynamic Plugin Engine**: Dynamically recognizes `.ps1` files in `lib/collectors/` and securely loads them after Authenticode verification.
+- **Signing Policy (Authenticode)**: Re-sign only changed `.ps1` files by default; run full bulk re-signing only for certificate rotation/renewal, large line-ending or encoding changes, and pre-release integrity sweeps.
 - **PowerShell Clean Code**: Adheres to naming, design, and isolation rules (See [CLEAN_CODE_GUIDE.md](docs/en-US/CLEAN_CODE_GUIDE.md)).
 - **Defensive Programming**: Designed to ensure uninterrupted collection even in environments where certain modules or cmdlets are missing.
 
