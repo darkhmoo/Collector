@@ -56,6 +56,9 @@ $runner.AddTest([TamperedSignatureTest]::new())
 $runner.AddTest([DiskFullSimulationTest]::new())
 $runner.AddTest([SaveResultsWriteFailurePropagationTest]::new())
 $runner.AddTest([MainScriptFatalExitContractTest]::new())
+$runner.AddTest([ParallelCollectionTimeoutContractTest]::new())
+$runner.AddTest([ParallelCollectionTimeoutBehaviorTest]::new())
+$runner.AddTest([MainScriptSequentialTimeoutContractTest]::new())
 
 # --- 3. Execution ---
 
@@ -69,8 +72,8 @@ $runner.ShowSummary()
 # SIG # Begin signature block
 # MIIFiwYJKoZIhvcNAQcCoIIFfDCCBXgCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUAebmuvqTsovUupeoW5utIoH1
-# /K6gggMcMIIDGDCCAgCgAwIBAgIQGWEUqQpfT6JPYbwYRk6SXjANBgkqhkiG9w0B
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUijyqZwiGg8OG1piFhdwblhJb
+# SzSgggMcMIIDGDCCAgCgAwIBAgIQGWEUqQpfT6JPYbwYRk6SXjANBgkqhkiG9w0B
 # AQsFADAkMSIwIAYDVQQDDBlDb2xsZWN0b3ItSW50ZXJuYWwtU2lnbmVyMB4XDTI2
 # MDIxMzE2MzExMloXDTI3MDIxMzE2NTExMlowJDEiMCAGA1UEAwwZQ29sbGVjdG9y
 # LUludGVybmFsLVNpZ25lcjCCASIwDQYJKoZIhvcNAQEBBQADggEPADCCAQoCggEB
@@ -90,11 +93,11 @@ $runner.ShowSummary()
 # JDEiMCAGA1UEAwwZQ29sbGVjdG9yLUludGVybmFsLVNpZ25lcgIQGWEUqQpfT6JP
 # YbwYRk6SXjAJBgUrDgMCGgUAoHgwGAYKKwYBBAGCNwIBDDEKMAigAoAAoQKAADAZ
 # BgkqhkiG9w0BCQMxDAYKKwYBBAGCNwIBBDAcBgorBgEEAYI3AgELMQ4wDAYKKwYB
-# BAGCNwIBFTAjBgkqhkiG9w0BCQQxFgQUpUmKWWRZUtnoHTGehxPSavd/cy4wDQYJ
-# KoZIhvcNAQEBBQAEggEAYRw83IeKoBqeKvF9XbukrLA2aXdkSVuHhjW3q2IhNGqc
-# WPnI39rWjPoIUdSVWQHdXvegjoNCDdB55Rhye5d06inaekvI6ZsrgT6TxT/59ARp
-# f11SewXGIAZZPT8vlxCc9t71aLQAqSIvsxQEuA5BUe1RxHoUKdW1FQF5tGxet/T+
-# FA/ghAC4BPZEgyf7Np+5a26NV5kAMBfgvRjNhQYzjg7hhlIqC9pxGRvw0NVkSDri
-# XPHj4HykpXto1CHQZnAgceXVIAt+2phwgC1xk9JSmUWoefngpIBovb0+q20CoY+3
-# aUXelTEJ3Bw2X9Z5xri31zAOSyAlKNY/y4fnVXchMw==
+# BAGCNwIBFTAjBgkqhkiG9w0BCQQxFgQUdMTnNgIl7xCub9Qg/klN8bPm38YwDQYJ
+# KoZIhvcNAQEBBQAEggEAhm8wJYOe9LxsZ2YK4Fe6ukaf+vz4Jm51fKbH9msdNfoR
+# fKcJQHKgo2fxMKleaCAz4t/JF8vuTGJ70YUaEj/DGRiQkQclRNbr6U8AcjGCtVal
+# JvsZ4cdKddtsy0vTjXgPr2gLXhPWJ61jlqEDaYKMWtZxWOVIatY24Gq2fY3nukyJ
+# QE5Ffj5cw3c8M4LD4si7LB5ApgFS/issYvnzeXS30zCjhHpen539t3CTn3gM5tMz
+# 1dGBDMJdJ8mmrbM8tjsJHKudB6HKdItObweVd5kYCmuj7mgiuFNcmgnBxO8EmkVK
+# 7fWeVS6KBUSzbd1VK446G9gxSm6e71i+6Cw5bcNbsQ==
 # SIG # End signature block

@@ -216,11 +216,79 @@ class MainScriptFatalExitContractTest : BaseTest {
         return "Fatal catch and exit contract found"
     }
 }
+
+class ParallelCollectionTimeoutContractTest : BaseTest {
+    ParallelCollectionTimeoutContractTest() : base("Parallel Collection Timeout Contract", "EdgeCase-P0") {}
+
+    [string] Execute() {
+        $cmd = Get-Command Invoke-ParallelCollection -ErrorAction SilentlyContinue
+        if ($null -eq $cmd) {
+            throw "Invoke-ParallelCollection function not found."
+        }
+
+        if (-not $cmd.Parameters.ContainsKey("taskTimeoutSeconds")) {
+            throw "Invoke-ParallelCollection must expose -taskTimeoutSeconds."
+        }
+
+        return "Timeout parameter contract found"
+    }
+}
+
+class ParallelCollectionTimeoutBehaviorTest : BaseTest {
+    ParallelCollectionTimeoutBehaviorTest() : base("Parallel Collection Timeout Behavior", "EdgeCase-P0") {}
+
+    [string] Execute() {
+        $repoRoot = Join-Path $PSScriptRoot "..\.."
+        $resolvedRoot = (Resolve-Path -Path $repoRoot).Path
+
+        $tasks = @(
+            [PSCustomObject]@{
+                Key   = "Hang"
+                Name  = "1/1 Hang"
+                Block = { Start-Sleep -Seconds 2; "OK" }
+            }
+        )
+
+        $result = Invoke-ParallelCollection -tasks $tasks -scriptRoot $resolvedRoot -taskTimeoutSeconds 1 -maxThreadsOverride 1
+        $entry = $result["Hang"]
+
+        if ($entry -isnot [string] -or $entry -notlike "*timed out after 1s*") {
+            throw "Expected timeout result for hanging task, got: $entry"
+        }
+
+        return "Timeout behavior verified"
+    }
+}
+
+class MainScriptSequentialTimeoutContractTest : BaseTest {
+    MainScriptSequentialTimeoutContractTest() : base("Main Script Sequential Timeout Contract", "EdgeCase-P0") {}
+
+    [string] Execute() {
+        $mainScriptPath = Join-Path $PSScriptRoot "..\..\system_information_collector_for_windows.ps1"
+        if (-not (Test-Path -Path $mainScriptPath -PathType Leaf)) {
+            throw "Main script not found: $mainScriptPath"
+        }
+
+        $content = Get-Content -Path $mainScriptPath -Raw -Encoding UTF8
+
+        if ($content -notmatch '\[int\]\$moduleTimeoutSeconds\s*=\s*300') {
+            throw "Missing module timeout parameter in main script."
+        }
+        if ($content -notmatch '(?s)Invoke-ParallelCollection\s+-tasks\s+\$parallelTasks\s+-scriptRoot\s+\$PSScriptRoot\s+-taskTimeoutSeconds\s+\$moduleTimeoutSeconds') {
+            throw "Main script must pass module timeout to collection engine."
+        }
+        if ($content -notmatch '(?s)Invoke-ParallelCollection\s+-tasks\s+\$parallelTasks\s+-scriptRoot\s+\$PSScriptRoot\s+-taskTimeoutSeconds\s+\$moduleTimeoutSeconds\s+-maxThreadsOverride\s+1') {
+            throw "Sequential mode must use timeout-capable collection path with maxThreadsOverride 1."
+        }
+
+        return "Sequential timeout contract found"
+    }
+}
 # SIG # Begin signature block
 # MIIFiwYJKoZIhvcNAQcCoIIFfDCCBXgCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUVSjtxKouCbZC3Q/2u5DfRisL
-# DxWgggMcMIIDGDCCAgCgAwIBAgIQGWEUqQpfT6JPYbwYRk6SXjANBgkqhkiG9w0B
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUkyuTC1QQWTHtG3c1P94AYbzW
+# dwygggMcMIIDGDCCAgCgAwIBAgIQGWEUqQpfT6JPYbwYRk6SXjANBgkqhkiG9w0B
 # AQsFADAkMSIwIAYDVQQDDBlDb2xsZWN0b3ItSW50ZXJuYWwtU2lnbmVyMB4XDTI2
 # MDIxMzE2MzExMloXDTI3MDIxMzE2NTExMlowJDEiMCAGA1UEAwwZQ29sbGVjdG9y
 # LUludGVybmFsLVNpZ25lcjCCASIwDQYJKoZIhvcNAQEBBQADggEPADCCAQoCggEB
@@ -240,11 +308,11 @@ class MainScriptFatalExitContractTest : BaseTest {
 # JDEiMCAGA1UEAwwZQ29sbGVjdG9yLUludGVybmFsLVNpZ25lcgIQGWEUqQpfT6JP
 # YbwYRk6SXjAJBgUrDgMCGgUAoHgwGAYKKwYBBAGCNwIBDDEKMAigAoAAoQKAADAZ
 # BgkqhkiG9w0BCQMxDAYKKwYBBAGCNwIBBDAcBgorBgEEAYI3AgELMQ4wDAYKKwYB
-# BAGCNwIBFTAjBgkqhkiG9w0BCQQxFgQU8dz1DruamwIAu3yjj/yjNRFbN78wDQYJ
-# KoZIhvcNAQEBBQAEggEAaiUGeVQB2Mm/UPadqSeTUa/5W2LFXM6n8cJKAFJ7bfRP
-# 0mv4qcnEX6/1gePYYMTmCMXdNBtkGoHxad0wzezTGiFUnQ0VIXtZ2ncZb7DUHOJ2
-# +IZcrfqUDeK2JJV1QbxY5ONY7+b58wjcVPVeG2hfd04zUShsR8LcNvh54DF8pLmS
-# qPhO7qmj9odjgKXTQa4s31t1qOt3HaBU2JpBX7R86IMrc6YKNxsvM3GKDm+OYLyH
-# uAZz/skHitvEpCPDTPlO5j6mBRZ3CBVOGFr/n0dIigwMonEQPti6N/MKtBwUOp/b
-# Rsk8ORRaL1YXk3VfOH2nQ6TJHLsW83BmH3hCp5Zaww==
+# BAGCNwIBFTAjBgkqhkiG9w0BCQQxFgQUEJNUquFHL5uxpUMUdOZLun1akLEwDQYJ
+# KoZIhvcNAQEBBQAEggEAoIRqRQJr38uOxvG6XI1ALv2G2OOMk83aYL3oAIKOb9fZ
+# 1qKSNt0an4Ne4PSc9Syj8iwLhHVYVXY9N2JwfwQaUedAJSSUid2JVe7Xkx4Kk8G5
+# e4n0mOeVssWTb4KfArYB34RfzMgUrFq87mrLvYLwPKW7bTdoVgV6ZGFtrLpvb14s
+# a0kdDqiBke2t0imbKwZvwGrN2LRQ+AFdBRads+VmFXwkU1AJUecC/mXDOnCpVGcf
+# ohgcs3Rla/Kr0sECCmbV93l1w+oRjd3ICFGNNgW+H7iuUFaJWrSBcP9X/PZHSzyy
+# 6GTgY1ZijKV7VqlItjp7RwcdBhnIvA6q90RC0srnfQ==
 # SIG # End signature block

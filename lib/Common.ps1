@@ -370,16 +370,30 @@ function Invoke-ParallelCollection {
         [PSCustomObject[]]$tasks,
         
         [Parameter(Mandatory = $true)]
-        [string]$scriptRoot
+        [string]$scriptRoot,
+
+        [Parameter(Mandatory = $false)]
+        [ValidateRange(1, 3600)]
+        [int]$taskTimeoutSeconds = 300,
+
+        [Parameter(Mandatory = $false)]
+        [ValidateScript({ $_ -eq 0 -or ($_ -ge 1 -and $_ -le 256) })]
+        [int]$maxThreadsOverride = 0
     )
 
-    Write-Log -message "[Parallel] Starting parallel collection for $($tasks.Count) modules..." -color Cyan -level Info
+    Write-Log -message "[Parallel] Starting parallel collection for $($tasks.Count) modules (Timeout: ${taskTimeoutSeconds}s)..." -color Cyan -level Info
     
     $results = [ordered]@{}
     $powershells = @()
     
     # 1. RunspacePool Setup
-    $maxThreads = [math]::Min($tasks.Count, [Environment]::ProcessorCount * 2)
+    if ($maxThreadsOverride -gt 0) {
+        $maxThreads = [math]::Min($tasks.Count, $maxThreadsOverride)
+    }
+    else {
+        $maxThreads = [math]::Min($tasks.Count, [Environment]::ProcessorCount * 2)
+    }
+    $maxThreads = [math]::Max($maxThreads, 1)
     $runspacePool = [runspacefactory]::CreateRunspacePool(1, $maxThreads)
     $runspacePool.Open()
 
@@ -424,9 +438,10 @@ function Invoke-ParallelCollection {
         foreach ($taskItem in $powershells) {
             Write-Log -message "[Parallel] Waiting for $($taskItem.Name)..." -color DarkGray -level Debug
             
-            # Wait for handle with timeout protection (300s)
+            # Wait for handle with timeout protection
             $waitCount = 0
-            While (-not $taskItem.Handle.IsCompleted -and $waitCount -lt 3000) { 
+            $maxWaitCount = [Math]::Max(1, [int][Math]::Ceiling(($taskTimeoutSeconds * 1000) / 100))
+            While (-not $taskItem.Handle.IsCompleted -and $waitCount -lt $maxWaitCount) { 
                 Start-Sleep -Milliseconds 100 
                 $waitCount++
             }
@@ -436,7 +451,7 @@ function Invoke-ParallelCollection {
                 Write-Log -message "[Parallel] $($taskItem.Name) completed successfully." -color DarkGray -level Debug
             }
             else {
-                $results[$taskItem.Key] = "Error: Task timed out after 300s"
+                $results[$taskItem.Key] = "Error: Task timed out after ${taskTimeoutSeconds}s"
                 Write-Log -message "[Parallel] $($taskItem.Name) timed out or failed to complete." -color Red -level Error
                 try { $taskItem.PowerShell.Stop() } catch {}
             }
@@ -512,8 +527,8 @@ function Open-LocalizedDoc {
 # SIG # Begin signature block
 # MIIFiwYJKoZIhvcNAQcCoIIFfDCCBXgCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUicQykXCLCsL7TmVHjsGknjYE
-# ACCgggMcMIIDGDCCAgCgAwIBAgIQGWEUqQpfT6JPYbwYRk6SXjANBgkqhkiG9w0B
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQU+AR+k/Hk34UE4RWryRyQ4Hb1
+# PZmgggMcMIIDGDCCAgCgAwIBAgIQGWEUqQpfT6JPYbwYRk6SXjANBgkqhkiG9w0B
 # AQsFADAkMSIwIAYDVQQDDBlDb2xsZWN0b3ItSW50ZXJuYWwtU2lnbmVyMB4XDTI2
 # MDIxMzE2MzExMloXDTI3MDIxMzE2NTExMlowJDEiMCAGA1UEAwwZQ29sbGVjdG9y
 # LUludGVybmFsLVNpZ25lcjCCASIwDQYJKoZIhvcNAQEBBQADggEPADCCAQoCggEB
@@ -533,11 +548,11 @@ function Open-LocalizedDoc {
 # JDEiMCAGA1UEAwwZQ29sbGVjdG9yLUludGVybmFsLVNpZ25lcgIQGWEUqQpfT6JP
 # YbwYRk6SXjAJBgUrDgMCGgUAoHgwGAYKKwYBBAGCNwIBDDEKMAigAoAAoQKAADAZ
 # BgkqhkiG9w0BCQMxDAYKKwYBBAGCNwIBBDAcBgorBgEEAYI3AgELMQ4wDAYKKwYB
-# BAGCNwIBFTAjBgkqhkiG9w0BCQQxFgQUt6kHXY3CWOClTsOa6kLGR/v+oa0wDQYJ
-# KoZIhvcNAQEBBQAEggEAbFOIklCQ6lBEgSt1oY603jxNwTwNmJz8sByK20LLX0Kh
-# AfevunW8UevQD1vcHvT/yYnhD1D/90Akqyo7xSgvwzjfYQYfqgQITJeGb7tI9ytN
-# JdX/PwSVqBx/e/+ZjRTOrfEZYI3L4O3RqlTSvpHBGiTddTKzI3v8aBOABnl6pdDQ
-# 7daB9+L43JVZgYrVOKhmugEBQmMdAN34+B4ZdFDajZvabmrSREwYUZhXckn6Umxc
-# +q9xB1vIZPJrBw2uSlX7yYiSsjFdIOOj1ttkPCIx1AGvrGowFKbCfHD6sB9Lc5KV
-# WsD2N5bHdhyatfVeflP4Z5j/UpW8L0t0wzplLRQ0mQ==
+# BAGCNwIBFTAjBgkqhkiG9w0BCQQxFgQUJtB6zTY8HkZFV8lvHLUF2GAAfbQwDQYJ
+# KoZIhvcNAQEBBQAEggEADCHywN25tBqI3aa2Eivw5f90jp2TWbNwNC22+iPQrabm
+# QEEU0m5ivyxK7C2wxmMZk2IO0PmiRWEqOC3OczkHFysgJF9OQcbRks+umatUO26V
+# MaGG3/xOcQ99Uue++P8w/QiPepOw2YHIAG1fmuDLJiubPEFhlOrEJCGhlJv+7p6+
+# k5ojSH30VXoQJwHPngh70PC1tGSZt9stvBJy4VE22d+0EDlifmROwp09ROwtZheA
+# TwyzMtp8PQM32ng3k2I8yHKTBxTzqMfO32mUV0eDFNpx5ZzcEMqgw+3NGYrZcvzc
+# j80ke/gS0NLulZPRIisk3fqdaWCfDFD45dl9qGsQbA==
 # SIG # End signature block

@@ -54,6 +54,10 @@ param(
     [int]$eventLogLookbackDays = 7,
 
     [Parameter(Mandatory = $false)]
+    [ValidateRange(1, 3600)]
+    [int]$moduleTimeoutSeconds = 300,
+
+    [Parameter(Mandatory = $false)]
     [ValidateSet("Hardware", "Network", "OSConfig", "Inventory", "Virtualization", "Services", "Performance", "Logs", "Security", "ActiveDirectory", "HighAvailability", "ALL")]
     [string[]]$modules = "ALL",
 
@@ -231,58 +235,51 @@ try {
         ExecutionTime = $null
     }
 
-    if ($parallel) {
-        # Parallel Execution
-        $parallelTasks = @()
-        $index = 1
-        foreach ($key in $modulesToCollect.Keys) {
-            $parallelTasks += [PSCustomObject]@{
-                Key   = $key
-                Name  = "$index/$totalCount $key"
-                Block = $modulesToCollect[$key]
-            }
-            $index++
+    $parallelTasks = @()
+    $index = 1
+    foreach ($key in $modulesToCollect.Keys) {
+        $parallelTasks += [PSCustomObject]@{
+            Key   = $key
+            Name  = "$index/$totalCount $key"
+            Block = $modulesToCollect[$key]
         }
-        
-        $parallelResults = Invoke-ParallelCollection -tasks $parallelTasks -scriptRoot $PSScriptRoot
-        foreach ($key in $parallelResults.Keys) {
-            $taskResult = $parallelResults[$key]
-            
-            # Unpack data and merge state
-            if ($taskResult -is [PSCustomObject] -and $taskResult.PSObject.Properties.Name -contains "Data") {
-                $auditReport | Add-Member -NotePropertyName $key -NotePropertyValue $taskResult.Data
-                
-                # Merge StepTimings
-                if ($taskResult.StepTimings) {
-                    $script:StepTimings += $taskResult.StepTimings
-                }
-                
-                # Merge GeneratedFiles
-                if ($taskResult.GeneratedFiles) {
-                    foreach ($file in $taskResult.GeneratedFiles) {
-                        if ($file -notin $script:generatedFiles) {
-                            $script:generatedFiles += $file
-                        }
+        $index++
+    }
+
+    if ($parallel) {
+        $parallelResults = Invoke-ParallelCollection -tasks $parallelTasks -scriptRoot $PSScriptRoot -taskTimeoutSeconds $moduleTimeoutSeconds
+    }
+    else {
+        $parallelResults = Invoke-ParallelCollection -tasks $parallelTasks -scriptRoot $PSScriptRoot -taskTimeoutSeconds $moduleTimeoutSeconds -maxThreadsOverride 1
+    }
+
+    foreach ($task in $parallelTasks) {
+        $key = $task.Key
+        $taskResult = $parallelResults[$key]
+
+        # Unpack data and merge state
+        if ($taskResult -is [PSCustomObject] -and $taskResult.PSObject.Properties.Name -contains "Data") {
+            $auditReport | Add-Member -NotePropertyName $key -NotePropertyValue $taskResult.Data
+
+            # Merge StepTimings
+            if ($taskResult.StepTimings) {
+                $script:StepTimings += $taskResult.StepTimings
+            }
+
+            # Merge GeneratedFiles
+            if ($taskResult.GeneratedFiles) {
+                foreach ($file in $taskResult.GeneratedFiles) {
+                    if ($file -notin $script:generatedFiles) {
+                        $script:generatedFiles += $file
                     }
                 }
             }
-            else {
-                # Fallback for unexpected return format
-                $auditReport | Add-Member -NotePropertyName $key -NotePropertyValue $taskResult
-            }
+        }
+        else {
+            # Fallback for unexpected return format
+            $auditReport | Add-Member -NotePropertyName $key -NotePropertyValue $taskResult
         }
     }
-    else {
-        # Sequential Execution (Default)
-        $index = 1
-        foreach ($key in $modulesToCollect.Keys) {
-            $taskName = "$index/$totalCount $key"
-            $result = Invoke-Collection -taskName $taskName -collectionBlock $modulesToCollect[$key]
-            $auditReport | Add-Member -NotePropertyName $key -NotePropertyValue $result
-            $index++
-        }
-    }
-
     $scriptStopwatch.Stop()
     $formattedExecutionTime = $scriptStopwatch.Elapsed.ToString("hh\:mm\:ss\.fff")
     $auditReport.ExecutionTime = $formattedExecutionTime
@@ -340,8 +337,8 @@ if ($fatalError) {
 # SIG # Begin signature block
 # MIIFiwYJKoZIhvcNAQcCoIIFfDCCBXgCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQULnig0PV6onZI4MgbMzKE0C4x
-# P5agggMcMIIDGDCCAgCgAwIBAgIQGWEUqQpfT6JPYbwYRk6SXjANBgkqhkiG9w0B
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUcKlsLQIWayKNRJi8ozeQ+Y8u
+# 0imgggMcMIIDGDCCAgCgAwIBAgIQGWEUqQpfT6JPYbwYRk6SXjANBgkqhkiG9w0B
 # AQsFADAkMSIwIAYDVQQDDBlDb2xsZWN0b3ItSW50ZXJuYWwtU2lnbmVyMB4XDTI2
 # MDIxMzE2MzExMloXDTI3MDIxMzE2NTExMlowJDEiMCAGA1UEAwwZQ29sbGVjdG9y
 # LUludGVybmFsLVNpZ25lcjCCASIwDQYJKoZIhvcNAQEBBQADggEPADCCAQoCggEB
@@ -361,11 +358,11 @@ if ($fatalError) {
 # JDEiMCAGA1UEAwwZQ29sbGVjdG9yLUludGVybmFsLVNpZ25lcgIQGWEUqQpfT6JP
 # YbwYRk6SXjAJBgUrDgMCGgUAoHgwGAYKKwYBBAGCNwIBDDEKMAigAoAAoQKAADAZ
 # BgkqhkiG9w0BCQMxDAYKKwYBBAGCNwIBBDAcBgorBgEEAYI3AgELMQ4wDAYKKwYB
-# BAGCNwIBFTAjBgkqhkiG9w0BCQQxFgQUC5rw6InSkqU+UV8RDtfBHtE/gHMwDQYJ
-# KoZIhvcNAQEBBQAEggEAz6k3AE+3W4T2NKqQF4Mad0Qv1ePwdMW/ERFMEQsz/DRR
-# P7hpvnnqaCMPxHDnGI9F9GYSBmSeSoTdVsRN4mfKR29imAGMvgChvkc7rW9Q/1jU
-# drUFddh5hGMUqtk+j2qysHIagRoOFGtWEzHR4ShnZWp47Gb6jaISd+yjsKsmT4Wt
-# tTvIzVhS01xlcXb1KB07O/8DCV30lPe42rGmvTRKA6i1znyiyK4srf0K2ZfCHNq5
-# LPh4zn7yRvdVMaWcNUo2DwANyKoaF1+0CjmV2ccsuexRxosvqLxD34mu+r9IuU3e
-# 8DOyUD2x2w6vVv5DBWFO4qF3gHz7Er81uxGlFY+O1g==
+# BAGCNwIBFTAjBgkqhkiG9w0BCQQxFgQUfyRnehWzbsG03kGKoEx7N98abCgwDQYJ
+# KoZIhvcNAQEBBQAEggEArMGwxrqaopKkROsbEOgMm0UJotCwJV/dlC3zHhmtWUtW
+# BHfuqFCnbHFd0xRwDsD9PZrnP/I7TB9HC4qvH2vqsJ6zmwOpJ9UBiLHXVm0npipT
+# vtKnz8M8DdLhIgxy7ok7Nt5YzBJdJ/8dhUsGnsfiH09aTzddDQWtgKdMWAMQHdRI
+# UhLsHdo8jOVlPOXjJMnktKnVLLFiCdOziJd0X5jnpUvejYSgD891SjwWnkCX+tli
+# ZjB1sp8T/rWRuSk4PElYx2RKdAmbqCBn6Ljjcrn7/7BkxwMSrICXGCyQ009B+n/U
+# Ut8J+H//cGu9En+0+7yyIMzl4zIqFVpV8oVlOW8X7g==
 # SIG # End signature block
