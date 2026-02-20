@@ -82,7 +82,7 @@ function Save-Results {
             }
 
             if ($PSCmdlet.ShouldProcess("All Event Logs to $outputDirectory", "Export as $eventLogFormat")) {
-                Export-EventLogFiles -EventLogs $auditReport.Logs.EventLogs -outputFormat $eventLogFormat -OutputDir $outputDirectory -lookbackDays $eventLogLookbackDays
+                Export-EventLogFiles -EventLogs $auditReport.Logs.EventLogs -outputFormat $eventLogFormat -OutputDir $outputDirectory -lookbackDays $eventLogLookbackDays -fileTimestamp $timeStamp
             }
         }
 
@@ -283,8 +283,8 @@ function Protect-File {
 # SIG # Begin signature block
 # MIIFiwYJKoZIhvcNAQcCoIIFfDCCBXgCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUUNfJOlwLWqltavRNCMKdsSFS
-# vaygggMcMIIDGDCCAgCgAwIBAgIQGWEUqQpfT6JPYbwYRk6SXjANBgkqhkiG9w0B
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUP2NkjC95Me1HAYCCSkJXHyKB
+# egegggMcMIIDGDCCAgCgAwIBAgIQGWEUqQpfT6JPYbwYRk6SXjANBgkqhkiG9w0B
 # AQsFADAkMSIwIAYDVQQDDBlDb2xsZWN0b3ItSW50ZXJuYWwtU2lnbmVyMB4XDTI2
 # MDIxMzE2MzExMloXDTI3MDIxMzE2NTExMlowJDEiMCAGA1UEAwwZQ29sbGVjdG9y
 # LUludGVybmFsLVNpZ25lcjCCASIwDQYJKoZIhvcNAQEBBQADggEPADCCAQoCggEB
@@ -304,11 +304,11 @@ function Protect-File {
 # JDEiMCAGA1UEAwwZQ29sbGVjdG9yLUludGVybmFsLVNpZ25lcgIQGWEUqQpfT6JP
 # YbwYRk6SXjAJBgUrDgMCGgUAoHgwGAYKKwYBBAGCNwIBDDEKMAigAoAAoQKAADAZ
 # BgkqhkiG9w0BCQMxDAYKKwYBBAGCNwIBBDAcBgorBgEEAYI3AgELMQ4wDAYKKwYB
-# BAGCNwIBFTAjBgkqhkiG9w0BCQQxFgQUF3c+psORvDukZicoRIu0mgZjNfwwDQYJ
-# KoZIhvcNAQEBBQAEggEAflOuFGy08lc7C3jkeQCKq9ERELS8MQ8pbs/W/8bbG3cT
-# ZGjQTtG9Y/Ck27PsyWAWaM/Ec318bPZ0+V8i8+98QY2adHq2vuy+pLd5Ds9sVbuE
-# WWCRwOLNbQojgjfKDLknUH9W85GdcRo2YLK+4I5ZbnYdyZQct5Exh4K3rNw3bwsj
-# kQVJAIiN9/BzosgjLmtV8ZGr4XjmrlAqD7rZe02VTagE+tEksPO5N8teX0S94p+4
-# 39f3E6MJwGikk2CmzSctVMw5gcBf10+e0InTSwpmNxHqTDiOXEhelRRt953xEsUQ
-# 99MCfbCelOvzTVm6zjuiEllH9lx3I+zqLc5GJOoXFA==
+# BAGCNwIBFTAjBgkqhkiG9w0BCQQxFgQUippd7qCX0n9q3fw5JfAFDA481nAwDQYJ
+# KoZIhvcNAQEBBQAEggEA0dcouFVf0UC7F9wz/tyiFtQOIcikHzhOHHzfpujTrCDh
+# fIkBRDe1Hu9+dUJ0oS+kCPvDPDfO/qT+cgnp7NZUp+wKb3aNbPCVhT0c6NV4iLAF
+# RoxG8u0IqttGCUTA0XGs8twVwlz7keDiIL0yC+Lh2G8R4PRkAdxewjz0/BDV24Iu
+# ebj59pJbaDGQAgvtywsSYYAJ/A4o+nuSzL969nsuNqtxVPlvEEdjX/ECNcv1ARJ6
+# IiGgFAcSRiVhZWMjdbNfGpxPviMCzodHVbVQ0/8friNqYr9lEG/k0vTwsMC0O5Nz
+# d4HlsT3viidPakds9FAMM2J1WKFrV1Fd9jNzmoILug==
 # SIG # End signature block

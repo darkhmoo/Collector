@@ -134,12 +134,19 @@ function Export-EventLogFiles {
 
         [Parameter(Mandatory = $false)]
         [ValidateRange(1, 365)]
-        [int]$lookbackDays = 7
+        [int]$lookbackDays = 7,
+
+        [Parameter(Mandatory = $false)]
+        [string]$fileTimestamp = (Get-Date -Format "yyyyMMdd-HHmmss")
     )
     
     if ($null -eq $eventLogs -or $eventLogs.Count -eq 0) {
         Write-Log -message "  ! No event logs to export" -color Yellow -level Warning
         return
+    }
+
+    if ([string]::IsNullOrWhiteSpace($fileTimestamp)) {
+        $fileTimestamp = Get-Date -Format "yyyyMMdd-HHmmss"
     }
     
     foreach ($logKey in $eventLogs.Keys) {
@@ -152,7 +159,7 @@ function Export-EventLogFiles {
         
         $fileExtension = if ($outputFormat -eq "HTML") { "html" } else { "csv" }
         $safeLogName = ($logKey -replace '[^\w\.-]', '_')
-        $fileName = "Log_${safeLogName}.${fileExtension}"
+        $fileName = "Log_${safeLogName}_${fileTimestamp}.${fileExtension}"
         $filePath = Join-Path -Path $outputDir -ChildPath $fileName
         
         try {
@@ -185,8 +192,8 @@ function Export-EventLogFiles {
 # SIG # Begin signature block
 # MIIFiwYJKoZIhvcNAQcCoIIFfDCCBXgCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQU7sASXghHvPSPUu24quEQascq
-# AMCgggMcMIIDGDCCAgCgAwIBAgIQGWEUqQpfT6JPYbwYRk6SXjANBgkqhkiG9w0B
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUsTbR7seNiUDYemscZWgU3pCZ
+# wwygggMcMIIDGDCCAgCgAwIBAgIQGWEUqQpfT6JPYbwYRk6SXjANBgkqhkiG9w0B
 # AQsFADAkMSIwIAYDVQQDDBlDb2xsZWN0b3ItSW50ZXJuYWwtU2lnbmVyMB4XDTI2
 # MDIxMzE2MzExMloXDTI3MDIxMzE2NTExMlowJDEiMCAGA1UEAwwZQ29sbGVjdG9y
 # LUludGVybmFsLVNpZ25lcjCCASIwDQYJKoZIhvcNAQEBBQADggEPADCCAQoCggEB
@@ -206,11 +213,11 @@ function Export-EventLogFiles {
 # JDEiMCAGA1UEAwwZQ29sbGVjdG9yLUludGVybmFsLVNpZ25lcgIQGWEUqQpfT6JP
 # YbwYRk6SXjAJBgUrDgMCGgUAoHgwGAYKKwYBBAGCNwIBDDEKMAigAoAAoQKAADAZ
 # BgkqhkiG9w0BCQMxDAYKKwYBBAGCNwIBBDAcBgorBgEEAYI3AgELMQ4wDAYKKwYB
-# BAGCNwIBFTAjBgkqhkiG9w0BCQQxFgQUtGs8f0/ylHoDeQAdkR2LxE2kT90wDQYJ
-# KoZIhvcNAQEBBQAEggEApd9r69Q89KMCjKvPfcC9pnFm5q2yrgcq3STnzSMpKcTV
-# 3lKFGY+aStnly2wfT9D+Z1pCZbGe65L7IdlwNbh++izYohs5ep195NG8d4GJjek5
-# Il0JNYdcy9nQdwxvPuxO3A//G+3xBnAMeYZlIo+wEx0q3jim7I6fJFYcJ5UeTkkq
-# GJ9Wd7mPQR/RbYsNVG7UYGi7nAAtpUkCshJTr3RA+KTqxZoMo1UYzPsO6tzcJlf7
-# h4iHuNfTn2zL23cCLCp60cOg8SShMjZNCYXcJQDOozfHtY5jDTtugTUl9NT4Ir5h
-# jj3W+yYKy1QaUVVJtAX3tV5qITU1X2vbtE4CbRp8Qw==
+# BAGCNwIBFTAjBgkqhkiG9w0BCQQxFgQUiuuiYJxaQsXotF7h1vG09P3tF70wDQYJ
+# KoZIhvcNAQEBBQAEggEAg+SPmZYrKxxH5uhAu7Tf22FG8a6z7INl0cljTOqSul/p
+# qneuB/LpoO3aTXiOB+085FAdA4cQl9vGssrpyNi0CFn5lgubS3djlwO8CCAnf1W0
+# V0jQD9K/gDdNk2PIAmCsO1Jocc5N1FjJMoh63HvwS7phTfbf8MI43ECdXqHCIwlb
+# UP3xhKNTf5NUjxSAPfQ9Ak3VuZt1T5mxKL2OeradFWEPR0u1N9crEtzOP5wqTexH
+# YmQZ8yZxytcooKx+o1vEchBaA6m2wu+ZGPB2ucuXk9JbNKuv1BOMPlgULNOxSi0w
+# jXfgdv514asrkD6kjfvnPcQMprigV2B4sUYlN0s4lw==
 # SIG # End signature block

@@ -23,7 +23,7 @@ if (Test-Path $collectorPath) {
         if ($sig.Status -eq "Valid") {
             try {
                 . $filePath
-                Write-Log -message "    ✓ Authenticode Valid. Module loaded." -color Green -level Debug
+                Write-Log -message "    ??Authenticode Valid. Module loaded." -color Green -level Debug
             }
             catch {
                 Write-Error "Failed to load collector module $($_.Name): $_"

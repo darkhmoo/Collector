@@ -16,33 +16,72 @@ function Get-EventLogs {
     )
 
     $eventLogsData = @{}
-    $logFolders = @('System', 'Application', 'Security')
+    $logFolders = @(
+        'System',
+        'Application',
+        'Security',
+        'Setup',
+        'Microsoft-Windows-Winlogon/Operational',
+        'Microsoft-Windows-GroupPolicy/Operational',
+        'Microsoft-Windows-TerminalServices-LocalSessionManager/Operational',
+        'Microsoft-Windows-TerminalServices-RemoteConnectionManager/Operational',
+        'Microsoft-Windows-Diagnostics-Performance/Operational'
+    )
+    $criticalOnlyLogs = @('System', 'Application')
+    $unfilteredLogs = @(
+        'Setup',
+        'Microsoft-Windows-Winlogon/Operational',
+        'Microsoft-Windows-GroupPolicy/Operational',
+        'Microsoft-Windows-TerminalServices-LocalSessionManager/Operational',
+        'Microsoft-Windows-TerminalServices-RemoteConnectionManager/Operational',
+        'Microsoft-Windows-Diagnostics-Performance/Operational'
+    )
     $lookbackMilliseconds = [int64]$LookbackDays * 24 * 60 * 60 * 1000
+    $isAdmin = (New-Object Security.Principal.WindowsPrincipal([Security.Principal.WindowsIdentity]::GetCurrent())).
+        IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
     
     foreach ($logName in $logFolders) {
         try {
-            # Audit Rule: Large Log Guard ($O(S)$ complexity control)
-            $logFile = Get-CimSafe -className Win32_NTEventlogFile -filter "LogfileName='$logName'" | Select-Object -First 1
-            if ($logFile -and $logFile.FileSize -gt 1GB) {
-                Write-Log -message "  ! Warning: $logName log file is very large ($([math]::Round($logFile.FileSize / 1GB, 2)) GB). Limiting event count to 50 for performance." -color Yellow -level Warning
-                $maxEvents = 50
-            }
-            else {
-                $maxEvents = 100
-            }
-
             Write-Log -message "  - Collecting $logName Log..." -color Gray -Level Info
 
             if ($logName -eq 'Security') {
-                $xmlFilter = @"
-<QueryList>
-  <Query Id="0" Path="$logName">
-    <Select Path="$logName">*[System[TimeCreated[timediff(@SystemTime) &lt;= $lookbackMilliseconds]]]</Select>
-  </Query>
-</QueryList>
-"@
+                if (-not $isAdmin) {
+                    $securityError = "Access denied to Security log. Run PowerShell as Administrator."
+                    Write-Log -message "  ! $securityError" -color Yellow -level Warning
+                    $eventLogsData[$logName] = "Error: $securityError"
+                    continue
+                }
             }
-            else {
+
+            # Check channel availability/status first to avoid hard failures on optional channels.
+            try {
+                $logInfo = Get-WinEvent -ListLog $logName -ErrorAction Stop
+                if (-not $logInfo.IsEnabled) {
+                    Write-Log -message "  - $logName is disabled. Skipping." -color DarkGray -level Debug
+                    $eventLogsData[$logName] = @()
+                    continue
+                }
+
+                if ($logInfo.FileSize -gt 1GB) {
+                    Write-Log -message "  ! Warning: $logName log file is very large ($([math]::Round($logInfo.FileSize / 1GB, 2)) GB). Limiting event count to 50 for performance." -color Yellow -level Warning
+                    $maxEvents = 50
+                }
+                else {
+                    $maxEvents = 100
+                }
+            }
+            catch {
+                $listErrorText = $_.Exception.Message
+                Write-Log -message "  - $logName channel unavailable or inaccessible: $listErrorText" -color DarkGray -level Debug
+                $eventLogsData[$logName] = @()
+                continue
+            }
+
+            if ($unfilteredLogs -contains $logName) {
+                $recentEvents = Get-WinEvent -LogName $logName -MaxEvents $maxEvents -ErrorAction Stop | 
+                Select-Object TimeCreated, Level, Id, ProviderName, Message, Keywords
+            }
+            elseif ($criticalOnlyLogs -contains $logName) {
                 $xmlFilter = @"
 <QueryList>
   <Query Id="0" Path="$logName">
@@ -50,17 +89,37 @@ function Get-EventLogs {
   </Query>
 </QueryList>
 "@
+                $recentEvents = Get-WinEvent -FilterXml $xmlFilter -MaxEvents $maxEvents -ErrorAction Stop | 
+                Select-Object TimeCreated, Level, Id, ProviderName, Message, Keywords
             }
-
-            $recentEvents = Get-WinEvent -FilterXml $xmlFilter -MaxEvents $maxEvents -ErrorAction SilentlyContinue | 
-            Select-Object TimeCreated, Level, Id, ProviderName, Message, Keywords
+            else {
+                $xmlFilter = @"
+<QueryList>
+  <Query Id="0" Path="$logName">
+    <Select Path="$logName">*[System[TimeCreated[timediff(@SystemTime) &lt;= $lookbackMilliseconds]]]</Select>
+  </Query>
+</QueryList>
+"@
+                $recentEvents = Get-WinEvent -FilterXml $xmlFilter -MaxEvents $maxEvents -ErrorAction Stop | 
+                Select-Object TimeCreated, Level, Id, ProviderName, Message, Keywords
+            }
             
             if ($recentEvents) {
                 $eventLogsData[$logName] = $recentEvents
             }
             else { $eventLogsData[$logName] = @() }
         }
-        catch { $eventLogsData[$logName] = "Error: $_" }
+        catch {
+            $errorText = $_.Exception.Message
+            if ($errorText -like "*No events were found that match the specified selection criteria*") {
+                Write-Log -message "  - No matching events found in $logName log for the selected window." -color DarkGray -level Debug
+                $eventLogsData[$logName] = @()
+            }
+            else {
+                Write-Log -message "  ! Failed to collect $logName log: $errorText" -color Yellow -level Warning
+                $eventLogsData[$logName] = "Error: $errorText"
+            }
+        }
     }
     return $eventLogsData
 }
@@ -144,8 +203,8 @@ function Get-LogInfo {
 # SIG # Begin signature block
 # MIIFiwYJKoZIhvcNAQcCoIIFfDCCBXgCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUeliwV7LfZ+JlW4fjtCtOrTia
-# GvOgggMcMIIDGDCCAgCgAwIBAgIQGWEUqQpfT6JPYbwYRk6SXjANBgkqhkiG9w0B
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQU+rEXKMOOs2QRfc0IpfeGy8Hc
+# XWKgggMcMIIDGDCCAgCgAwIBAgIQGWEUqQpfT6JPYbwYRk6SXjANBgkqhkiG9w0B
 # AQsFADAkMSIwIAYDVQQDDBlDb2xsZWN0b3ItSW50ZXJuYWwtU2lnbmVyMB4XDTI2
 # MDIxMzE2MzExMloXDTI3MDIxMzE2NTExMlowJDEiMCAGA1UEAwwZQ29sbGVjdG9y
 # LUludGVybmFsLVNpZ25lcjCCASIwDQYJKoZIhvcNAQEBBQADggEPADCCAQoCggEB
@@ -165,11 +224,11 @@ function Get-LogInfo {
 # JDEiMCAGA1UEAwwZQ29sbGVjdG9yLUludGVybmFsLVNpZ25lcgIQGWEUqQpfT6JP
 # YbwYRk6SXjAJBgUrDgMCGgUAoHgwGAYKKwYBBAGCNwIBDDEKMAigAoAAoQKAADAZ
 # BgkqhkiG9w0BCQMxDAYKKwYBBAGCNwIBBDAcBgorBgEEAYI3AgELMQ4wDAYKKwYB
-# BAGCNwIBFTAjBgkqhkiG9w0BCQQxFgQUhIuXtNLbM9ivq8kR9Vxv4z7JZzUwDQYJ
-# KoZIhvcNAQEBBQAEggEAXWVhIP3Wm8t4dQUPpECu9e9fvK0lzcYfaUijXFZ1d34O
-# ZkMg4h4pgmI+cjPVQrNJkv4FerTrc0jsKealnPTSrx3QoDs+qloLWGM6/fE+Aq6n
-# 6zmmKw3ucetli0HLuRkpMXY8hvT7irmLhclxAkeVHtP866SUvlOI9APEGdpgwREk
-# MW0hRKwrsLa15fqc29oSfKoLkhZDYXOalTPFTew/iAVDBiP1063f35cqyNuvGT/d
-# DEL97s7DYRxTiKVZerO2vVFJTcAyrF1ldOVr8vEICLztNL/lLfgFoI6dBY9XnMU7
-# 1cZX+hOAbleOLBKUVtESFbEB4PFfN3jq8wezibCZ0A==
+# BAGCNwIBFTAjBgkqhkiG9w0BCQQxFgQUurmt5roDK+kvC5rX40RM7xitkIgwDQYJ
+# KoZIhvcNAQEBBQAEggEA1QNzBjET7OP0G/9X2MvzCDiRH5liWJ55qKHTNWvSarF4
+# XiUAERcTw7tTbp4OVz3BAqOETkTTul04qtfrrtmEIH9KfwnlTCFaQxumzf8W1yr7
+# 67eP1A5ROgf50Tk3cU4wVwcmqKUiOkMLpydQlfU3XY0zhqAIhlghgyF0MG8F4FEU
+# ilkGcH8GtsYqmUrzvfsK546c0Bf8zcIyX0LDHB4MKbZnv6kUVtTh90/PHjoKFSw0
+# FEUESZCbuWXrip4j0gw52X5+Jo090/NO3lQEpbSN9nByQsQGet4H4gKzT9q5md/6
+# fjzQJk+PVBGjacUnXXzZ8qN9eOGVAbAKKq3NVmbu4Q==
 # SIG # End signature block

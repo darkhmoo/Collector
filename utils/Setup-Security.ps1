@@ -50,7 +50,7 @@ else {
     Write-Warning "Plugin path not found: $pluginPath"
 }
 
-# lib\reporters 폴더도 서명 대상에 포함
+# lib\reporters ?�더???�명 ?�?�에 ?�함
 $reporterPath = Join-Path $PSScriptRoot "..\lib\reporters"
 if (Test-Path $reporterPath) {
     $reporters = Get-ChildItem -Path $reporterPath -Filter "*.ps1"
@@ -69,8 +69,8 @@ Write-Host "`nSecurity Setup Complete. Plugin Loading Protection can now be enab
 # SIG # Begin signature block
 # MIIFiwYJKoZIhvcNAQcCoIIFfDCCBXgCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUlO3QqOCyWxMEIezIpcyDLC1x
-# mGCgggMcMIIDGDCCAgCgAwIBAgIQGWEUqQpfT6JPYbwYRk6SXjANBgkqhkiG9w0B
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQU6On8rldzA/ZUoDZ+uqWeJC5M
+# fmygggMcMIIDGDCCAgCgAwIBAgIQGWEUqQpfT6JPYbwYRk6SXjANBgkqhkiG9w0B
 # AQsFADAkMSIwIAYDVQQDDBlDb2xsZWN0b3ItSW50ZXJuYWwtU2lnbmVyMB4XDTI2
 # MDIxMzE2MzExMloXDTI3MDIxMzE2NTExMlowJDEiMCAGA1UEAwwZQ29sbGVjdG9y
 # LUludGVybmFsLVNpZ25lcjCCASIwDQYJKoZIhvcNAQEBBQADggEPADCCAQoCggEB
@@ -90,11 +90,11 @@ Write-Host "`nSecurity Setup Complete. Plugin Loading Protection can now be enab
 # JDEiMCAGA1UEAwwZQ29sbGVjdG9yLUludGVybmFsLVNpZ25lcgIQGWEUqQpfT6JP
 # YbwYRk6SXjAJBgUrDgMCGgUAoHgwGAYKKwYBBAGCNwIBDDEKMAigAoAAoQKAADAZ
 # BgkqhkiG9w0BCQMxDAYKKwYBBAGCNwIBBDAcBgorBgEEAYI3AgELMQ4wDAYKKwYB
-# BAGCNwIBFTAjBgkqhkiG9w0BCQQxFgQUwSgz+HXU/yXEp9lP98GD/IlLlrcwDQYJ
-# KoZIhvcNAQEBBQAEggEAI6wmi2oNdz3cau2F0nF6rymQ/T65RiqAvYeknPKnlxGM
-# bMD0MpG1y99QWFfNSoZ3n7VMMyuzkqzAxsZOD88z5qOArWdLUjt6IHg00H5Bd/Bj
-# uXZkN2a1RpyvmgWge3OE8lMG2QxmDRJRwAxkRx9guXrMM70NBln7p3oeu1mS05vh
-# ClywHpndrJnhNhxoSe63x/RJXe6YhJBXLwgeb9pI24QuZ+Z/XN3OYeyfqigOX5fi
-# ZPWBmNiv3L8P9sBpbSlw+yPWOrR3SUl29S5oQ+hz2MWb9G+qW838igFXSUxnx3Vu
-# Mgv8GGbG7G1pnpijiJs5xpmReot4h2zTTVGqCaGIEg==
+# BAGCNwIBFTAjBgkqhkiG9w0BCQQxFgQUHFMgTpk84DZVfSDtiow1XA5F2GswDQYJ
+# KoZIhvcNAQEBBQAEggEAMbxnPLDFlHyMFGYlj2wNXrOBCX90whtV3dbRlP0m6TZK
+# glzT8EG/LncCxGi3ifr6vNK4CbkG7QkWTKY/t0rENDVjvpPNKCqHdFJthZVgLXIr
+# +rrIS/UDDNpjAgkNLqVAVK5cCgC0MUfuKwRinJVOi/mQyC+mNpjeUWyKgGkVQJOg
+# 7ZZ82O8EvwB/7Bmb25lHRtwhiI78TcZAN5e8gu2D0YDr65zO7669x6IVeiw8sSu+
+# L7PzYWTu/NDmTcMOrxVrB/nx/J6NZ+S9svhcdbR1wMgF+Q+Fa9A2vWi2yFaJYmre
+# eD5FdnfHvLGRZORGduHiiEbqISXEd5Jos34kXiZdgg==
 # SIG # End signature block
