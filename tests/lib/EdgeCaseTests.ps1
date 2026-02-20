@@ -490,11 +490,74 @@ class MainScriptRunspaceExceptionSummaryContractTest : BaseTest {
         return "Runspace exception summary contract found"
     }
 }
+
+class ParallelInterruptResultSchemaTest : BaseTest {
+    ParallelInterruptResultSchemaTest() : base("Parallel Interrupt Result Schema", "EdgeCase-P0") {}
+
+    [string] Execute() {
+        $repoRoot = Join-Path $PSScriptRoot "..\.."
+        $resolvedRoot = (Resolve-Path -Path $repoRoot).Path
+
+        $tasks = @(
+            [PSCustomObject]@{
+                Key   = "Long"
+                Name  = "1/1 Long"
+                Block = { Start-Sleep -Seconds 2; "DONE" }
+            }
+        )
+
+        $script:InterruptRequested = $true
+        $result = $null
+        try {
+            $result = Invoke-ParallelCollection -tasks $tasks -scriptRoot $resolvedRoot -taskTimeoutSeconds 5 -maxThreadsOverride 1
+        }
+        finally {
+            $script:InterruptRequested = $false
+        }
+
+        $entry = $result["Long"]
+        if ($entry -isnot [PSCustomObject]) {
+            throw "Interrupt result must be structured object."
+        }
+        if ($entry.Status -ne "Interrupted") {
+            throw "Expected Status=Interrupted, got: $($entry.Status)"
+        }
+        if ($entry.TimedOut) {
+            throw "Interrupted task must not be marked as timeout."
+        }
+
+        return "Parallel interrupt result schema verified"
+    }
+}
+
+class MainScriptInterruptContractTest : BaseTest {
+    MainScriptInterruptContractTest() : base("Main Script Interrupt Contract", "EdgeCase-P0") {}
+
+    [string] Execute() {
+        $mainScriptPath = Join-Path $PSScriptRoot "..\..\system_information_collector_for_windows.ps1"
+        if (-not (Test-Path -Path $mainScriptPath -PathType Leaf)) {
+            throw "Main script not found: $mainScriptPath"
+        }
+
+        $content = Get-Content -Path $mainScriptPath -Raw -Encoding UTF8
+        if ($content -notmatch 'Console\]::CancelKeyPress') {
+            throw "Missing Ctrl+C cancel key handler registration."
+        }
+        if ($content -notmatch '\[Interrupt\]') {
+            throw "Missing standardized interrupt log prefix."
+        }
+        if ($content -notmatch 'CancelKeyPress\s*-=') {
+            throw "Missing cancel key handler unregistration in cleanup."
+        }
+
+        return "Main script interrupt contract found"
+    }
+}
 # SIG # Begin signature block
 # MIIFiwYJKoZIhvcNAQcCoIIFfDCCBXgCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUiqVMr9FkyI6opIuO00azme6y
-# +ZmgggMcMIIDGDCCAgCgAwIBAgIQGWEUqQpfT6JPYbwYRk6SXjANBgkqhkiG9w0B
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUIdHY/V1L3SuuLO0MQcM0Rxqc
+# ENigggMcMIIDGDCCAgCgAwIBAgIQGWEUqQpfT6JPYbwYRk6SXjANBgkqhkiG9w0B
 # AQsFADAkMSIwIAYDVQQDDBlDb2xsZWN0b3ItSW50ZXJuYWwtU2lnbmVyMB4XDTI2
 # MDIxMzE2MzExMloXDTI3MDIxMzE2NTExMlowJDEiMCAGA1UEAwwZQ29sbGVjdG9y
 # LUludGVybmFsLVNpZ25lcjCCASIwDQYJKoZIhvcNAQEBBQADggEPADCCAQoCggEB
@@ -514,11 +577,11 @@ class MainScriptRunspaceExceptionSummaryContractTest : BaseTest {
 # JDEiMCAGA1UEAwwZQ29sbGVjdG9yLUludGVybmFsLVNpZ25lcgIQGWEUqQpfT6JP
 # YbwYRk6SXjAJBgUrDgMCGgUAoHgwGAYKKwYBBAGCNwIBDDEKMAigAoAAoQKAADAZ
 # BgkqhkiG9w0BCQMxDAYKKwYBBAGCNwIBBDAcBgorBgEEAYI3AgELMQ4wDAYKKwYB
-# BAGCNwIBFTAjBgkqhkiG9w0BCQQxFgQU8XzUTcQkemzq2uMxNWm+lftylbAwDQYJ
-# KoZIhvcNAQEBBQAEggEAzYWniW2A+XZ/26p/Gum29egqiAdpFYK6Kk+CZ/HfubfO
-# WkOAqLjI8CHrf08xbW/Jygs7CcqDeaEJWcTF5EVBxN4Qzg+70BoGqrgqOu1MzAjF
-# GCLVgsE+zXOcaBAYqSvj2j7M8/TuMxC74rckePl0Vn+W+QZNR+u633UwL4gXlj5W
-# Qvjfw5eG81BJHNYdIwc8ZMWlTV08+MckvQfxJWBbN2sBN9SvLxEkCgFzkU1qJx6g
-# HEyX5tHU0QOSe4T8kycuP5QCiEDjXxEQlW+DGG6y9h8p1qq+hSuXLGmkugSIAxXf
-# p0NVaKOtWNzN3TqBGfoIj8PHPyULZynwwC1AMbHsfA==
+# BAGCNwIBFTAjBgkqhkiG9w0BCQQxFgQUDSwglXWzj48Mj0EOrSTvum463v8wDQYJ
+# KoZIhvcNAQEBBQAEggEAIpoLKB/qjjoW2Y0CxVHKsXpSsx9H7QApRdeEPgmXQAMR
+# JV17+kUagFWfkxwmOlxQHkpStRvSNwNxwYKukpB8/RXIokVXB38tkti7amsmkciV
+# gVInsye+/si6WmSjVczFNCFMi+7ks7D3Dr90CQaEqsu9+VoVhqAqQFdv4WvwIXe9
+# LlNpkeKDVXfHuFYNp3heWg/QUBIB7RAPald6ip+KkJeJ7E4W1uUpmUS9P0jQUTkw
+# kvhgbDSmjxmPdZ3BbOcinHy851t8MuKS59kxXFtOy43c+ornHqSufjvHv+PFd8GB
+# riPM9MPqD1x+A2LFX45I6P/otxXlrxyVx1bZN/4QKA==
 # SIG # End signature block

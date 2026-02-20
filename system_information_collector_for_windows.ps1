@@ -135,12 +135,106 @@ function Show-PerformanceSummary {
     }
 }
 
+function Register-InterruptHandler {
+    [CmdletBinding()]
+    param()
+
+    if (-not [Environment]::UserInteractive) {
+        return $null
+    }
+
+    $handler = [System.ConsoleCancelEventHandler]{
+        param($sender, $eventArgs)
+        $script:InterruptRequested = $true
+        $eventArgs.Cancel = $true
+
+        try {
+            if (Get-Command Write-Log -ErrorAction SilentlyContinue) {
+                Write-Log -message "[Interrupt] Ctrl+C detected. Graceful shutdown requested." -color Yellow -level Warning
+            }
+            else {
+                Write-Host "[Interrupt] Ctrl+C detected. Graceful shutdown requested." -ForegroundColor Yellow
+            }
+        }
+        catch {
+            # Do not block cancellation flow.
+        }
+    }
+
+    try {
+        [Console]::CancelKeyPress += $handler
+        return $handler
+    }
+    catch {
+        return $null
+    }
+}
+
+function Unregister-InterruptHandler {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $false)]
+        [System.ConsoleCancelEventHandler]$handler
+    )
+
+    if ($handler) {
+        try {
+            [Console]::CancelKeyPress -= $handler
+        }
+        catch {
+            # Ignore unregistration failures to preserve main cleanup.
+        }
+    }
+}
+
+function Clear-InterruptedArtifacts {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$outputDirectory,
+
+        [Parameter(Mandatory = $false)]
+        [string[]]$generatedFiles = @()
+    )
+
+    $cleanupTargets = @()
+
+    if (Test-Path -Path $outputDirectory -PathType Container) {
+        $cleanupTargets += Get-ChildItem -Path $outputDirectory -File -ErrorAction SilentlyContinue |
+            Where-Object { $_.Name -match '\.(tmp|partial|lock)$' } |
+            Select-Object -ExpandProperty FullName
+    }
+
+    foreach ($file in $generatedFiles) {
+        if (-not [string]::IsNullOrWhiteSpace($file) -and (Test-Path -Path $file -PathType Leaf)) {
+            $cleanupTargets += $file
+        }
+    }
+
+    $cleanupTargets = $cleanupTargets | Select-Object -Unique
+    $removedCount = 0
+    foreach ($target in $cleanupTargets) {
+        try {
+            Remove-Item -Path $target -Force -ErrorAction Stop
+            $removedCount++
+        }
+        catch {
+            # Best effort cleanup only.
+        }
+    }
+
+    if (Get-Command Write-Log -ErrorAction SilentlyContinue) {
+        Write-Log -message "[Interrupt] Cleanup policy removed $removedCount intermediate file(s)." -color Yellow -level Info
+    }
+}
 # --- INITIALIZATION ---
 $scriptStopwatch = [System.Diagnostics.Stopwatch]::StartNew()
 $script:DebugMode = [bool]$debugMode
 $script:DebugLogFile = $null
 $script:generatedFiles = @()
 $script:StepTimings = @()
+$script:InterruptRequested = $false
+$cancelKeyHandler = $null
 
 if ($script:DebugMode) {
     if ($PSCmdlet.ShouldProcess("Local System", "Enable Verbose Debug Logging")) {
@@ -172,6 +266,7 @@ catch {
 # --- MAIN EXECUTION ---
 $globalMutex = $null
 $fatalError = $null
+$cancelKeyHandler = Register-InterruptHandler
 
 try {
     # Check for ShowHelp early
@@ -262,6 +357,10 @@ try {
     }
     Write-Log -message "[Summary] Runspace exceptions: $runspaceExceptionCount" -color Yellow -level Info
 
+    if ($script:InterruptRequested) {
+        throw [System.OperationCanceledException]::new("Collection interrupted by user (Ctrl+C).")
+    }
+
     foreach ($task in $parallelTasks) {
         $key = $task.Key
         $taskResult = $parallelResults[$key]
@@ -303,6 +402,10 @@ try {
     $finalOutputFormats = if ($outputFormat -contains "ALL") { @("JSON", "HTML", "CSV") } else { $outputFormat }
     $finalOutputFormats = $finalOutputFormats | ForEach-Object { $_.ToUpper() } | Select-Object -Unique
 
+    if ($script:InterruptRequested) {
+        throw [System.OperationCanceledException]::new("Collection interrupted by user (Ctrl+C).")
+    }
+
     try {
         Save-Results `
             -auditReport $auditReport `
@@ -329,9 +432,21 @@ try {
 }
 catch {
     $fatalError = $_
-    Write-Log -message "[CRITICAL] Fatal execution error: $($_.Exception.Message)" -color Red -level Error
+    if ($script:InterruptRequested -or $_.Exception -is [System.OperationCanceledException]) {
+        Write-Log -message "[Interrupt] Collection interrupted by user. Cleanup in progress." -color Yellow -level Warning
+    }
+    else {
+        Write-Log -message "[CRITICAL] Fatal execution error: $($_.Exception.Message)" -color Red -level Error
+    }
 }
 finally {
+    Unregister-InterruptHandler -handler $cancelKeyHandler
+
+    if ($script:InterruptRequested) {
+        Clear-InterruptedArtifacts -outputDirectory $outputPath -generatedFiles $script:generatedFiles
+        Write-Log -message "[Interrupt] Cleanup complete. Safe to re-run collector." -color Yellow -level Info
+    }
+
     if ($globalMutex) {
         try { $globalMutex.ReleaseMutex() } catch { Write-Warning "Mutex release warning: $_" }
         finally { $globalMutex.Dispose() }
@@ -346,8 +461,8 @@ if ($fatalError) {
 # SIG # Begin signature block
 # MIIFiwYJKoZIhvcNAQcCoIIFfDCCBXgCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQU9uGZA5VkDuPLSDAcYYB1xeC4
-# 5kegggMcMIIDGDCCAgCgAwIBAgIQGWEUqQpfT6JPYbwYRk6SXjANBgkqhkiG9w0B
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQU7uKP+kCy9N+jvheS7SOtqFzg
+# 3PqgggMcMIIDGDCCAgCgAwIBAgIQGWEUqQpfT6JPYbwYRk6SXjANBgkqhkiG9w0B
 # AQsFADAkMSIwIAYDVQQDDBlDb2xsZWN0b3ItSW50ZXJuYWwtU2lnbmVyMB4XDTI2
 # MDIxMzE2MzExMloXDTI3MDIxMzE2NTExMlowJDEiMCAGA1UEAwwZQ29sbGVjdG9y
 # LUludGVybmFsLVNpZ25lcjCCASIwDQYJKoZIhvcNAQEBBQADggEPADCCAQoCggEB
@@ -367,11 +482,11 @@ if ($fatalError) {
 # JDEiMCAGA1UEAwwZQ29sbGVjdG9yLUludGVybmFsLVNpZ25lcgIQGWEUqQpfT6JP
 # YbwYRk6SXjAJBgUrDgMCGgUAoHgwGAYKKwYBBAGCNwIBDDEKMAigAoAAoQKAADAZ
 # BgkqhkiG9w0BCQMxDAYKKwYBBAGCNwIBBDAcBgorBgEEAYI3AgELMQ4wDAYKKwYB
-# BAGCNwIBFTAjBgkqhkiG9w0BCQQxFgQUlHM4DlnWFh/T8FsXP9GLF6bwFA0wDQYJ
-# KoZIhvcNAQEBBQAEggEAI8Sd5VUwRzFsaMLj5FIGZvTiGTHKFWhF//3oamtIsKGU
-# xp0eoBAYAL9h0WAQ8whC4qDSU4tsR90uAfCzyYOmcf9/U/offZZIVFG22fUMNypB
-# Biwpo3M//UiEQ9ClkGjAAv2C+aD5l2cv0SJWPpehEXudufFUTIR3sZZnQlMEjkjk
-# tV0QzNzaVkGsq8Ak8/TKDb11zX5Yc0gkmwB1GeC2Nm53sAPoOx0PwWTKqPZrrjaz
-# fEGFC4cfUvyCi+B21HmD0XIu2mGeCDgeIYzL517vpzDXslIE/6ax/V07IdlyY2Wi
-# Q6pAgZ18sDZW+L567eBUIE8OzTA99AXCbKiY34mpnw==
+# BAGCNwIBFTAjBgkqhkiG9w0BCQQxFgQUlbAkUcnZlHHbFtasVaiM4CVxlqAwDQYJ
+# KoZIhvcNAQEBBQAEggEA1wKiKFeFMiPfUG4WLWfVQPdGiKUwbA71bi3b4pdxSfRC
+# mnscTs+4NB3fE0bQUF9OAHoe08UoyGBnr5swpCtYy5OQhUw0bygP5Vj1vR+a+/2/
+# IRU/4jMWHTIIZ5cZeqiKf+Sb7bfpQu57CuIvw1RS3rSoakB4R+6M8wP4vNQHh3E4
+# bg7UKH1dwqkXSDT7R1zBmSn0vIKvvR17Q3TJE2FAf/MZl9rqAtudKeMsjBCIBvX5
+# 3qp1ILmKqE7uTpS2fmTbjYMBwNREyf0HfIvDkthA9uszzFZqxyOQ2lfBOl0NTS1R
+# mhYoCFHRCqlYwY6nRy2klyVn3mG7MF2W5znATQhfZA==
 # SIG # End signature block

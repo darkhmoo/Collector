@@ -504,10 +504,29 @@ function Invoke-ParallelCollection {
                 
                 # Wait for handle with timeout protection
                 $waitCount = 0
+                $taskInterrupted = $false
                 $maxWaitCount = [Math]::Max(1, [int][Math]::Ceiling(($taskTimeoutSeconds * 1000) / 100))
                 While (-not $taskItem.Handle.IsCompleted -and $waitCount -lt $maxWaitCount) { 
+                    if ($script:InterruptRequested) {
+                        $taskInterrupted = $true
+                        break
+                    }
                     Start-Sleep -Milliseconds 100 
                     $waitCount++
+                }
+
+                if ($taskInterrupted -or $script:InterruptRequested) {
+                    $results[$taskItem.Key] = [PSCustomObject]@{
+                        Data           = "Error: Collection interrupted by user (Ctrl+C)"
+                        StepTimings    = @()
+                        GeneratedFiles = @()
+                        Status         = "Interrupted"
+                        TimedOut       = $false
+                        ElapsedMs      = ($waitCount * 100)
+                    }
+                    Write-Log -message "[Parallel] $($taskItem.Name) interrupted by user signal." -color Yellow -level Warning
+                    try { $taskItem.PowerShell.Stop() } catch {}
+                    continue
                 }
                 
                 if ($taskItem.Handle.IsCompleted) {
@@ -661,8 +680,8 @@ function Open-LocalizedDoc {
 # SIG # Begin signature block
 # MIIFiwYJKoZIhvcNAQcCoIIFfDCCBXgCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUvdT40gSMQM5fsnDucJtSuhBc
-# PqagggMcMIIDGDCCAgCgAwIBAgIQGWEUqQpfT6JPYbwYRk6SXjANBgkqhkiG9w0B
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUlRCUYorf7RJrHAX2Gyjsj13I
+# rqKgggMcMIIDGDCCAgCgAwIBAgIQGWEUqQpfT6JPYbwYRk6SXjANBgkqhkiG9w0B
 # AQsFADAkMSIwIAYDVQQDDBlDb2xsZWN0b3ItSW50ZXJuYWwtU2lnbmVyMB4XDTI2
 # MDIxMzE2MzExMloXDTI3MDIxMzE2NTExMlowJDEiMCAGA1UEAwwZQ29sbGVjdG9y
 # LUludGVybmFsLVNpZ25lcjCCASIwDQYJKoZIhvcNAQEBBQADggEPADCCAQoCggEB
@@ -682,11 +701,11 @@ function Open-LocalizedDoc {
 # JDEiMCAGA1UEAwwZQ29sbGVjdG9yLUludGVybmFsLVNpZ25lcgIQGWEUqQpfT6JP
 # YbwYRk6SXjAJBgUrDgMCGgUAoHgwGAYKKwYBBAGCNwIBDDEKMAigAoAAoQKAADAZ
 # BgkqhkiG9w0BCQMxDAYKKwYBBAGCNwIBBDAcBgorBgEEAYI3AgELMQ4wDAYKKwYB
-# BAGCNwIBFTAjBgkqhkiG9w0BCQQxFgQUoD6e5XtURAo3ivez2/vpxh1sg/4wDQYJ
-# KoZIhvcNAQEBBQAEggEALE7Re6VsF7z5a5UXzc40ENpT5uOTKb2XJbgozuOQ3qDu
-# zJd1rVlKnSA1uXJw4aDE2gPe0ro+j6uKgGIbgXwbHTCfFaFsEkwxJyx4Zes4Wnxw
-# QkqwlqEtRHNXYpm9CP3xeQjZjF1VSN2laCF/idDzzAZ/4gPUZU9jgKKd/ec/aD6x
-# r6GVJL5z3fq1mZT52X9MzgU5p3u2nnFXNk7x3Zr0lX0apJLtoWEKLpgV2rykoIeG
-# NhHmBLxIxRWXSzmb6eqmWJ0qYJVu9x64mTk969Af3FemB3vGalU+MrCtcx5pEaQ8
-# 6d1rWGzQKZytKdEJK2xo9kuZZpIdEr3aMpLAnKKqqQ==
+# BAGCNwIBFTAjBgkqhkiG9w0BCQQxFgQUQ8aBffTQjPt5t2ThPLQ499R2814wDQYJ
+# KoZIhvcNAQEBBQAEggEALRNTb92F9FZEJIB+wS7oicTspSowEYq/AvWsMM4gR4em
+# 8di9JlifGY9s1c8R8ZuntuqonhnOcmcxyF4sLhjWBVBLYS68e0vywy5SJzfdvwr0
+# KXTEEeSjOzfDmobsPO9hPMooYapSAnmTok/AK6/uQxTcA7ZDF42XSw8WlxWr6V36
+# kkVEUJPinUIw9GlVS9qO5tDQFUt1WQ3ggji6Co6G1jGZtZZ6LF8S8nH+MINynHXa
+# Hy9WFtgIugeS28t83l0IV+kaIilACQM6LzpD7Cx7Ne6YzAlUFOXi/qd3/C2FQNyc
+# OJ0f2agKg4a7apv4+Wfg+IIFovV2KY12M85RP9u0LA==
 # SIG # End signature block
