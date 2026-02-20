@@ -11,7 +11,11 @@
 
 .PARAMETER OutputFormat
     Specifies the output format (JSON, HTML, CSV, ALL). Default is HTML.
-.PARAMETER EventLogFormat`r`n    Specifies the output format for event logs (HTML, CSV). Default is HTML.`r`n.PARAMETER EventLogLookbackDays`r`n    Specifies the number of days to look back when collecting Event Logs. Default is 7.`r`n.PARAMETER Modules
+.PARAMETER EventLogFormat
+    Specifies the output format for event logs (HTML, CSV). Default is HTML.
+.PARAMETER EventLogLookbackDays
+    Specifies the number of days to look back when collecting Event Logs. Default is 7.
+.PARAMETER Modules
     Specifies which modules to collect. Default is ALL.
 .PARAMETER OutputPath
     Specifies the directory path where result files will be saved. Default is the script root.
