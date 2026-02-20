@@ -97,20 +97,17 @@ class LogCollectionWindowParameterTest : BaseTest {
             throw "Get-EventLogs must expose -LookbackDays parameter for window control."
         }
 
-        $originalGetWinEvent = Get-Command Get-WinEvent -ErrorAction SilentlyContinue
-        $originalGetCimSafe = Get-Command Get-CimSafe -ErrorAction SilentlyContinue
+        $originalGetWinEventFunction = Get-Item -Path function:global:Get-WinEvent -ErrorAction SilentlyContinue
+        $originalGetWinEventScript = if ($originalGetWinEventFunction) {
+            [scriptblock]::Create($originalGetWinEventFunction.ScriptBlock.ToString())
+        }
+        else {
+            $null
+        }
 
         $script:CapturedFilterXml = @()
 
         try {
-            Set-Item -Path function:global:Get-CimSafe -Value {
-                param(
-                    [string]$className,
-                    [string]$filter
-                )
-                return [PSCustomObject]@{ FileSize = 256MB }
-            }
-
             Set-Item -Path function:global:Get-WinEvent -Value {
                 param(
                     [string]$FilterXml,
@@ -149,15 +146,8 @@ class LogCollectionWindowParameterTest : BaseTest {
             return "Lookback parameter verified for default(7d) and custom(2d) windows"
         }
         finally {
-            if ($null -ne $originalGetCimSafe -and $originalGetCimSafe.CommandType -eq "Function") {
-                Set-Item -Path function:global:Get-CimSafe -Value $originalGetCimSafe.ScriptBlock
-            }
-            else {
-                Remove-Item -Path function:global:Get-CimSafe -ErrorAction SilentlyContinue
-            }
-
-            if ($null -ne $originalGetWinEvent -and $originalGetWinEvent.CommandType -eq "Function") {
-                Set-Item -Path function:global:Get-WinEvent -Value $originalGetWinEvent.ScriptBlock
+            if ($null -ne $originalGetWinEventScript) {
+                Set-Item -Path function:global:Get-WinEvent -Value $originalGetWinEventScript
             }
             else {
                 Remove-Item -Path function:global:Get-WinEvent -ErrorAction SilentlyContinue

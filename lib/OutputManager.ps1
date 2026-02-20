@@ -24,7 +24,7 @@
     SecureString containing the key for AES-256 encryption.
 #>
 function Save-Results {
-    [CmdletBinding(SupportsShouldProcess = $true)]
+    [CmdletBinding(SupportsShouldProcess = $true, PositionalBinding = $false)]
     param(
         [Parameter(Mandatory = $true)]
         [PSCustomObject]$auditReport,
@@ -171,7 +171,9 @@ function Save-Results {
         }
     }
     catch {
-        Write-Error "Output generation failed: $_"
+        $errorMessage = "Output generation failed: $($_.Exception.Message)"
+        Write-Error $errorMessage
+        throw $errorMessage
     }
     finally {
         # Exhaustive Cleanup: ZIP ?ì„± ???”ì—¬ ì¤‘ê°„ ?Œì¼ ?•ë¦¬

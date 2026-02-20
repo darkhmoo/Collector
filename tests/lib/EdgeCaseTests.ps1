@@ -8,7 +8,16 @@ class FaultInjectionEngine {
 
     static [void] Inject([string]$FunctionName, [scriptblock]$FakeLogic) {
         if (-not [FaultInjectionEngine]::OriginalFunctions.ContainsKey($FunctionName)) {
-            [FaultInjectionEngine]::OriginalFunctions[$FunctionName] = Get-Command $FunctionName -ErrorAction SilentlyContinue
+            $existingGlobalFunction = Get-Item -Path "function:global:$FunctionName" -ErrorAction SilentlyContinue
+            [FaultInjectionEngine]::OriginalFunctions[$FunctionName] = [PSCustomObject]@{
+                HadGlobalFunction = ($null -ne $existingGlobalFunction)
+                GlobalScriptBlock = if ($existingGlobalFunction) {
+                    [scriptblock]::Create($existingGlobalFunction.ScriptBlock.ToString())
+                }
+                else {
+                    $null
+                }
+            }
         }
         # Force override in global scope
         Set-Item -Path "function:global:$FunctionName" -Value $FakeLogic
@@ -17,15 +26,26 @@ class FaultInjectionEngine {
     static [void] Restore([string]$FunctionName) {
         if ([FaultInjectionEngine]::OriginalFunctions.ContainsKey($FunctionName)) {
             $original = [FaultInjectionEngine]::OriginalFunctions[$FunctionName]
-            Set-Item -Path "function:global:$FunctionName" -Value $original.ScriptBlock
+            if ($original.HadGlobalFunction -and $null -ne $original.GlobalScriptBlock) {
+                Set-Item -Path "function:global:$FunctionName" -Value $original.GlobalScriptBlock
+            }
+            else {
+                Remove-Item -Path "function:global:$FunctionName" -ErrorAction SilentlyContinue
+            }
             [FaultInjectionEngine]::OriginalFunctions.Remove($FunctionName)
         }
     }
 
     static [void] RestoreAll() {
-        foreach ($name in [FaultInjectionEngine]::OriginalFunctions.Keys) {
+        $names = @([FaultInjectionEngine]::OriginalFunctions.Keys)
+        foreach ($name in $names) {
             $original = [FaultInjectionEngine]::OriginalFunctions[$name]
-            Set-Item -Path "function:global:$name" -Value $original.ScriptBlock
+            if ($original.HadGlobalFunction -and $null -ne $original.GlobalScriptBlock) {
+                Set-Item -Path "function:global:$name" -Value $original.GlobalScriptBlock
+            }
+            else {
+                Remove-Item -Path "function:global:$name" -ErrorAction SilentlyContinue
+            }
         }
         [FaultInjectionEngine]::OriginalFunctions.Clear()
     }
@@ -92,30 +112,41 @@ class DiskFullSimulationTest : BaseTest {
     DiskFullSimulationTest() : base("Storage Quota/Disk Full Simulation", "EdgeCase-P0") {}
 
     [string] Execute() {
-        # Inject failure into Out-File or [System.IO.File]::WriteAllText
-        # For simplicity, we'll mock the internal Disk Space Check in Save-Results
-        
-        # We need to load OutputManager first if not already loaded
-        
-        [FaultInjectionEngine]::Inject("Get-DiskFreeSpace", {
-                return 1024 # Simulate 1KB left (Critical Fail)
+        # Simulate critically low disk space for the output drive pre-check.
+        [FaultInjectionEngine]::Inject("Get-PSDrive", {
+                param([string]$Name)
+                return [PSCustomObject]@{
+                    Name = $Name
+                    Free = 1024
+                }
             })
 
         try {
-            # Attempt to save results (should fail due to guard)
+            $dummyReport = [PSCustomObject]@{
+                Logs = @{ EventLogs = @{} }
+            }
+
+            # Attempt to save results (should fail due to low-space guard).
             try {
-                Save-Results -Data @{Test = "Data" } -Path "$env:TEMP\test_fail" -Format JSON -Encrypt $false
+                Save-Results `
+                    -auditReport $dummyReport `
+                    -outputFormat @("JSON") `
+                    -eventLogFormat "HTML" `
+                    -outputDirectory $env:TEMP `
+                    -isDebugMode $false `
+                    -zipResults $false `
+                    -encryptionKey $null
                 throw "Save-Results should have blocked the save due to low disk space."
             }
             catch {
-                if ($_.Exception.Message -like "*Insufficient disk space*") {
+                if ($_.Exception.Message -like "*Insufficient space*") {
                     return "Disk full guard correctly blocked the operation"
                 }
                 throw "Unexpected error: $($_.Exception.Message)"
             }
         }
         finally {
-            [FaultInjectionEngine]::Restore("Get-DiskFreeSpace")
+            [FaultInjectionEngine]::Restore("Get-PSDrive")
         }
     }
 }
