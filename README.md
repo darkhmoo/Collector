@@ -71,6 +71,8 @@
 ## 🛠️ 기술 표준 및 설계 원칙
 - **PowerShell Clean Code**: 네이밍, 함수 설계, 부작용 격리 규칙을 따릅니다 (참조: [CLEAN_CODE_GUIDE.md](docs/ko-KR/CLEAN_CODE_GUIDE.md)).
 - **서명 운영 정책(Authenticode)**: 기본은 변경된 `.ps1` 파일만 재서명하고, 인증서 교체/갱신·대규모 개행/인코딩 변경·릴리스 직전에는 전체 일괄 재서명을 수행합니다.
+- **이슈 구현 절차(필수)**: `1) 테스트 구현 계획 작성 -> 2) 테스트 작성 -> 3) 코드 구현 계획 작성 -> 4) 코드 구현 -> 5) 보안 서명 점검` 순서를 준수합니다.
+- **이슈 완료 처리(필수)**: GitHub 이슈 기반 작업은 코드 구현/검증 완료 후 즉시 해당 이슈를 `Closed` 처리합니다.
 - **방어적 프로그래밍**: 일부 모듈이나 Cmdlet이 없는 환경에서도 수집이 중단되지 않도록 설계되었습니다.
 
 ## ⚠️ 운영 시 주의사항
@@ -138,6 +140,8 @@ Beyond simple asset inventory, this tool supports:
 - **Class-based Provider Model**: Ensures consistency across modules via an object-oriented structure inheriting from `BaseCollector`.
 - **Dynamic Plugin Engine**: Dynamically recognizes `.ps1` files in `lib/collectors/` and securely loads them after Authenticode verification.
 - **Signing Policy (Authenticode)**: Re-sign only changed `.ps1` files by default; run full bulk re-signing only for certificate rotation/renewal, large line-ending or encoding changes, and pre-release integrity sweeps.
+- **Issue Implementation Workflow (Mandatory)**: Follow `1) test planning -> 2) test authoring -> 3) implementation planning -> 4) code implementation -> 5) security signing check` in this order.
+- **Issue Closure Policy (Mandatory)**: For GitHub issue-driven work, close the issue immediately after code implementation and verification are completed.
 - **PowerShell Clean Code**: Adheres to naming, design, and isolation rules (See [CLEAN_CODE_GUIDE.md](docs/en-US/CLEAN_CODE_GUIDE.md)).
 - **Defensive Programming**: Designed to ensure uninterrupted collection even in environments where certain modules or cmdlets are missing.
 

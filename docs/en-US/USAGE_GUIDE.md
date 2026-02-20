@@ -166,6 +166,14 @@ This tool utilizes digital signatures to prevent the execution of unauthorized s
        [PSCustomObject]@{ Path = $_.FullName; Status = $sig.Status }
    } | Where-Object { $_.Status -ne 'Valid' }
    ```
+6. **Mandatory Issue Implementation Workflow**:
+   - `1) Write test implementation plan`
+   - `2) Write tests`
+   - `3) Write code implementation plan`
+   - `4) Implement code`
+   - `5) Run security signing check`
+7. **Issue Closure Policy**:
+   - For GitHub issue-driven work, close the issue immediately after implementation and verification are complete.
 
 ---
 

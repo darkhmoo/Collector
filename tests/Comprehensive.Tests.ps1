@@ -54,6 +54,8 @@ $runner.AddTest([LogCollectionWindowParameterTest]::new())
 $runner.AddTest([WmiCorruptionTest]::new())
 $runner.AddTest([TamperedSignatureTest]::new())
 $runner.AddTest([DiskFullSimulationTest]::new())
+$runner.AddTest([SaveResultsWriteFailurePropagationTest]::new())
+$runner.AddTest([MainScriptFatalExitContractTest]::new())
 
 # --- 3. Execution ---
 
@@ -67,8 +69,8 @@ $runner.ShowSummary()
 # SIG # Begin signature block
 # MIIFiwYJKoZIhvcNAQcCoIIFfDCCBXgCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUdOUfgHNgde3NaLf2dHTxwO5/
-# jTqgggMcMIIDGDCCAgCgAwIBAgIQGWEUqQpfT6JPYbwYRk6SXjANBgkqhkiG9w0B
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUAebmuvqTsovUupeoW5utIoH1
+# /K6gggMcMIIDGDCCAgCgAwIBAgIQGWEUqQpfT6JPYbwYRk6SXjANBgkqhkiG9w0B
 # AQsFADAkMSIwIAYDVQQDDBlDb2xsZWN0b3ItSW50ZXJuYWwtU2lnbmVyMB4XDTI2
 # MDIxMzE2MzExMloXDTI3MDIxMzE2NTExMlowJDEiMCAGA1UEAwwZQ29sbGVjdG9y
 # LUludGVybmFsLVNpZ25lcjCCASIwDQYJKoZIhvcNAQEBBQADggEPADCCAQoCggEB
@@ -88,11 +90,11 @@ $runner.ShowSummary()
 # JDEiMCAGA1UEAwwZQ29sbGVjdG9yLUludGVybmFsLVNpZ25lcgIQGWEUqQpfT6JP
 # YbwYRk6SXjAJBgUrDgMCGgUAoHgwGAYKKwYBBAGCNwIBDDEKMAigAoAAoQKAADAZ
 # BgkqhkiG9w0BCQMxDAYKKwYBBAGCNwIBBDAcBgorBgEEAYI3AgELMQ4wDAYKKwYB
-# BAGCNwIBFTAjBgkqhkiG9w0BCQQxFgQUGupMeDdQoaq58YrvuGH7uLI4h+8wDQYJ
-# KoZIhvcNAQEBBQAEggEArQN4YdMTVkBmiN0Evsl0lyLfDSeZe80xsAKcGbPOCDOm
-# A5KtRxRSktJdvATw1xTAl6XwUvi6YMLi2krvo+UP74ewaFpyUfgNJTx6i3Rl710J
-# Ahd66WPmXyiTFGAwmRVwqlcfoEEVWKxQNNOf2tx1sW3TV7b8DhuKUYsVEWB7x3eZ
-# rvOpt0FzZ2VigO25Xxc54z40dw+nXXjHZ1PMeNpsFMGpkRvJNAapISfEDijYx4MT
-# G4BPCZw6jJq3XvlU5ZY1eizGiiKbCTp9TRSGEGzMpQlnQ2nKrX4bAwzQPWt3y+Q4
-# 1CMFaqXzQCoItFUwk4woH14WkU2CGzbZeLEWUBtYJw==
+# BAGCNwIBFTAjBgkqhkiG9w0BCQQxFgQUpUmKWWRZUtnoHTGehxPSavd/cy4wDQYJ
+# KoZIhvcNAQEBBQAEggEAYRw83IeKoBqeKvF9XbukrLA2aXdkSVuHhjW3q2IhNGqc
+# WPnI39rWjPoIUdSVWQHdXvegjoNCDdB55Rhye5d06inaekvI6ZsrgT6TxT/59ARp
+# f11SewXGIAZZPT8vlxCc9t71aLQAqSIvsxQEuA5BUe1RxHoUKdW1FQF5tGxet/T+
+# FA/ghAC4BPZEgyf7Np+5a26NV5kAMBfgvRjNhQYzjg7hhlIqC9pxGRvw0NVkSDri
+# XPHj4HykpXto1CHQZnAgceXVIAt+2phwgC1xk9JSmUWoefngpIBovb0+q20CoY+3
+# aUXelTEJ3Bw2X9Z5xri31zAOSyAlKNY/y4fnVXchMw==
 # SIG # End signature block

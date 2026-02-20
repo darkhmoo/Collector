@@ -123,7 +123,7 @@ class DiskFullSimulationTest : BaseTest {
 
         try {
             $dummyReport = [PSCustomObject]@{
-                Logs = @{ EventLogs = @{} }
+                Logs = @{ EventLogs = $null }
             }
 
             # Attempt to save results (should fail due to low-space guard).
@@ -151,11 +151,76 @@ class DiskFullSimulationTest : BaseTest {
     }
 }
 
+class SaveResultsWriteFailurePropagationTest : BaseTest {
+    SaveResultsWriteFailurePropagationTest() : base("Save-Results Write Failure Propagation", "EdgeCase-P0") {}
+
+    [string] Execute() {
+        [FaultInjectionEngine]::Inject("Export-EventLogFiles", {
+                param($EventLogs, $outputFormat, $OutputDir, $lookbackDays, $fileTimestamp)
+            })
+        [FaultInjectionEngine]::Inject("Set-Content", {
+                throw [System.UnauthorizedAccessException]::new("Mock access denied")
+            })
+
+        try {
+            $dummyReport = [PSCustomObject]@{
+                Logs = @{ EventLogs = @{} }
+            }
+
+            try {
+                Save-Results `
+                    -auditReport $dummyReport `
+                    -outputFormat @("JSON") `
+                    -eventLogFormat "HTML" `
+                    -outputDirectory $env:TEMP `
+                    -isDebugMode $false `
+                    -zipResults $false `
+                    -encryptionKey $null
+                throw "Save-Results should have thrown on write failure."
+            }
+            catch {
+                if ($_.Exception.Message -like "*Output generation failed*") {
+                    return "Write failure was propagated to caller"
+                }
+                throw "Unexpected error contract: $($_.Exception.Message)"
+            }
+        }
+        finally {
+            [FaultInjectionEngine]::Restore("Export-EventLogFiles")
+            [FaultInjectionEngine]::Restore("Set-Content")
+        }
+    }
+}
+
+class MainScriptFatalExitContractTest : BaseTest {
+    MainScriptFatalExitContractTest() : base("Main Script Fatal Exit Contract", "EdgeCase-P0") {}
+
+    [string] Execute() {
+        $mainScriptPath = Join-Path $PSScriptRoot "..\..\system_information_collector_for_windows.ps1"
+        if (-not (Test-Path -Path $mainScriptPath -PathType Leaf)) {
+            throw "Main script not found: $mainScriptPath"
+        }
+
+        $content = Get-Content -Path $mainScriptPath -Raw -Encoding UTF8
+
+        if ($content -notmatch '\$fatalError\s*=\s*\$null') {
+            throw "Missing fatal error tracking variable."
+        }
+        if ($content -notmatch '(?s)catch\s*\{\s*\$fatalError\s*=') {
+            throw "Missing top-level catch that captures fatal error."
+        }
+        if ($content -notmatch '(?s)if\s*\(\$fatalError\)\s*\{.*?exit\s+1') {
+            throw "Missing explicit exit code 1 on fatal error."
+        }
+
+        return "Fatal catch and exit contract found"
+    }
+}
 # SIG # Begin signature block
 # MIIFiwYJKoZIhvcNAQcCoIIFfDCCBXgCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUx08DEA0hf13vjj8gPw8mNzIg
-# QiygggMcMIIDGDCCAgCgAwIBAgIQGWEUqQpfT6JPYbwYRk6SXjANBgkqhkiG9w0B
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUVSjtxKouCbZC3Q/2u5DfRisL
+# DxWgggMcMIIDGDCCAgCgAwIBAgIQGWEUqQpfT6JPYbwYRk6SXjANBgkqhkiG9w0B
 # AQsFADAkMSIwIAYDVQQDDBlDb2xsZWN0b3ItSW50ZXJuYWwtU2lnbmVyMB4XDTI2
 # MDIxMzE2MzExMloXDTI3MDIxMzE2NTExMlowJDEiMCAGA1UEAwwZQ29sbGVjdG9y
 # LUludGVybmFsLVNpZ25lcjCCASIwDQYJKoZIhvcNAQEBBQADggEPADCCAQoCggEB
@@ -175,11 +240,11 @@ class DiskFullSimulationTest : BaseTest {
 # JDEiMCAGA1UEAwwZQ29sbGVjdG9yLUludGVybmFsLVNpZ25lcgIQGWEUqQpfT6JP
 # YbwYRk6SXjAJBgUrDgMCGgUAoHgwGAYKKwYBBAGCNwIBDDEKMAigAoAAoQKAADAZ
 # BgkqhkiG9w0BCQMxDAYKKwYBBAGCNwIBBDAcBgorBgEEAYI3AgELMQ4wDAYKKwYB
-# BAGCNwIBFTAjBgkqhkiG9w0BCQQxFgQU10QpHeJ9bQwq5RFRiiI9wKeWARUwDQYJ
-# KoZIhvcNAQEBBQAEggEAGri9OQIOw0PzeSu9DxRHYHBxSnlkVFE0wms0T/+lRGpR
-# 2IqgR4eybCaF4ghr4scv/q7LbpnWHX25LpouHsqQpnf0JHk26krwxJipikUFmma0
-# 3NcPGju1BNJI6OHHr91RdNU/NW73chb09C7B1ppjqbeIxJsAWUj2oh5VHb6tWUJ0
-# N84bOnA8O1AC3z+AQM2cyzefE8CyqlVAT+MGI/uD4a49GrSMjEllViDIxk+8CpHX
-# ql9k0Bh+1XOKks/D8bLq7ylzE4KFruDq79wZAjFZYUnzP7lgaNnbp5eUj4A/7AS8
-# 6RloEUmAd0vCojOwIW9BtJ2O7N4EMMJpq5ctTIc3jA==
+# BAGCNwIBFTAjBgkqhkiG9w0BCQQxFgQU8dz1DruamwIAu3yjj/yjNRFbN78wDQYJ
+# KoZIhvcNAQEBBQAEggEAaiUGeVQB2Mm/UPadqSeTUa/5W2LFXM6n8cJKAFJ7bfRP
+# 0mv4qcnEX6/1gePYYMTmCMXdNBtkGoHxad0wzezTGiFUnQ0VIXtZ2ncZb7DUHOJ2
+# +IZcrfqUDeK2JJV1QbxY5ONY7+b58wjcVPVeG2hfd04zUShsR8LcNvh54DF8pLmS
+# qPhO7qmj9odjgKXTQa4s31t1qOt3HaBU2JpBX7R86IMrc6YKNxsvM3GKDm+OYLyH
+# uAZz/skHitvEpCPDTPlO5j6mBRZ3CBVOGFr/n0dIigwMonEQPti6N/MKtBwUOp/b
+# Rsk8ORRaL1YXk3VfOH2nQ6TJHLsW83BmH3hCp5Zaww==
 # SIG # End signature block

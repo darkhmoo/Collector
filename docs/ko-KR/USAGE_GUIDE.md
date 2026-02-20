@@ -166,6 +166,14 @@
        [PSCustomObject]@{ Path = $_.FullName; Status = $sig.Status }
    } | Where-Object { $_.Status -ne 'Valid' }
    ```
+6. **이슈 구현 필수 절차**:
+   - `1) 테스트 구현 계획 작성`
+   - `2) 테스트 작성`
+   - `3) 코드 구현 계획 작성`
+   - `4) 코드 구현`
+   - `5) 보안 서명 점검`
+7. **이슈 완료 처리 정책**:
+   - GitHub 이슈 기반 작업은 구현/검증 완료 후 즉시 `Closed` 처리합니다.
 
 ---
 

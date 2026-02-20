@@ -167,6 +167,7 @@ catch {
 
 # --- MAIN EXECUTION ---
 $globalMutex = $null
+$fatalError = $null
 
 try {
     # Check for ShowHelp early
@@ -320,6 +321,10 @@ try {
         }
     }
 }
+catch {
+    $fatalError = $_
+    Write-Log -message "[CRITICAL] Fatal execution error: $($_.Exception.Message)" -color Red -level Error
+}
 finally {
     if ($globalMutex) {
         try { $globalMutex.ReleaseMutex() } catch { Write-Warning "Mutex release warning: $_" }
@@ -329,11 +334,14 @@ finally {
     [System.GC]::Collect()
 }
 
+if ($fatalError) {
+    exit 1
+}
 # SIG # Begin signature block
 # MIIFiwYJKoZIhvcNAQcCoIIFfDCCBXgCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUvnHBTj1C/PKhcm6OQZ1MY4Z8
-# Q4ygggMcMIIDGDCCAgCgAwIBAgIQGWEUqQpfT6JPYbwYRk6SXjANBgkqhkiG9w0B
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQULnig0PV6onZI4MgbMzKE0C4x
+# P5agggMcMIIDGDCCAgCgAwIBAgIQGWEUqQpfT6JPYbwYRk6SXjANBgkqhkiG9w0B
 # AQsFADAkMSIwIAYDVQQDDBlDb2xsZWN0b3ItSW50ZXJuYWwtU2lnbmVyMB4XDTI2
 # MDIxMzE2MzExMloXDTI3MDIxMzE2NTExMlowJDEiMCAGA1UEAwwZQ29sbGVjdG9y
 # LUludGVybmFsLVNpZ25lcjCCASIwDQYJKoZIhvcNAQEBBQADggEPADCCAQoCggEB
@@ -353,11 +361,11 @@ finally {
 # JDEiMCAGA1UEAwwZQ29sbGVjdG9yLUludGVybmFsLVNpZ25lcgIQGWEUqQpfT6JP
 # YbwYRk6SXjAJBgUrDgMCGgUAoHgwGAYKKwYBBAGCNwIBDDEKMAigAoAAoQKAADAZ
 # BgkqhkiG9w0BCQMxDAYKKwYBBAGCNwIBBDAcBgorBgEEAYI3AgELMQ4wDAYKKwYB
-# BAGCNwIBFTAjBgkqhkiG9w0BCQQxFgQU+mkS383BeCYkUAX/lIFFZGvviT0wDQYJ
-# KoZIhvcNAQEBBQAEggEA1B57YVx8K7D7wiYv9tS/Ql/WvANJ7XQyn3kMKK5XncAM
-# euzy6DO+XFl46tQ87dS4mY70JHJhMvKFLL9szqNbCdFkaR0IbthlOYMfZ/PC5voR
-# V6Nexv79NqYlEG7VhYN5yx1/LOOtBL64Y1MRdm3bEeOWzbDU0A/XhjHN9Ob+Sn92
-# reo+bJeYbLyV7Vj6vDru2K6xv3ixt9L0EVXqq0TXuMtMhEHTQZmtEJ6aSbwuD2KF
-# qJ2DKJMz00/1xig1mSz1HDw5JPiWd+M+Nxjms/uaTOonBj2JDkHOJm/EVmdGQfOs
-# rggNnHk4WhNfAUnNftNHASWG5msvxrQZaOLdFMG1vw==
+# BAGCNwIBFTAjBgkqhkiG9w0BCQQxFgQUC5rw6InSkqU+UV8RDtfBHtE/gHMwDQYJ
+# KoZIhvcNAQEBBQAEggEAz6k3AE+3W4T2NKqQF4Mad0Qv1ePwdMW/ERFMEQsz/DRR
+# P7hpvnnqaCMPxHDnGI9F9GYSBmSeSoTdVsRN4mfKR29imAGMvgChvkc7rW9Q/1jU
+# drUFddh5hGMUqtk+j2qysHIagRoOFGtWEzHR4ShnZWp47Gb6jaISd+yjsKsmT4Wt
+# tTvIzVhS01xlcXb1KB07O/8DCV30lPe42rGmvTRKA6i1znyiyK4srf0K2ZfCHNq5
+# LPh4zn7yRvdVMaWcNUo2DwANyKoaF1+0CjmV2ccsuexRxosvqLxD34mu+r9IuU3e
+# 8DOyUD2x2w6vVv5DBWFO4qF3gHz7Er81uxGlFY+O1g==
 # SIG # End signature block
