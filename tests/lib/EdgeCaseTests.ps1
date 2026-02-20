@@ -553,11 +553,103 @@ class MainScriptInterruptContractTest : BaseTest {
         return "Main script interrupt contract found"
     }
 }
+
+class SignatureVerificationScriptContractTest : BaseTest {
+    SignatureVerificationScriptContractTest() : base("Signature Verification Script Contract", "EdgeCase-P0") {}
+
+    [string] Execute() {
+        $scriptPath = Join-Path $PSScriptRoot "..\..\utils\Verify-Signatures.ps1"
+        if (-not (Test-Path -Path $scriptPath -PathType Leaf)) {
+            throw "Missing signature verification script: $scriptPath"
+        }
+
+        $content = Get-Content -Path $scriptPath -Raw -Encoding UTF8
+        foreach ($pattern in @("Get-AuthenticodeSignature", "TargetPath", "StagedOnly", "INVALID_SIGNATURES")) {
+            if ($content -notmatch [regex]::Escape($pattern)) {
+                throw "Missing contract token in Verify-Signatures.ps1: $pattern"
+            }
+        }
+
+        return "Signature verification script contract found"
+    }
+}
+
+class SignatureVerificationFailureListTest : BaseTest {
+    SignatureVerificationFailureListTest() : base("Signature Verification Failure List", "EdgeCase-P0") {}
+
+    [string] Execute() {
+        $verifyScript = Join-Path $PSScriptRoot "..\..\utils\Verify-Signatures.ps1"
+        if (-not (Test-Path -Path $verifyScript -PathType Leaf)) {
+            throw "Verify-Signatures script missing."
+        }
+
+        $tempRoot = Join-Path $env:TEMP ("sig_verify_test_" + [Guid]::NewGuid().ToString("N"))
+        New-Item -Path $tempRoot -ItemType Directory -Force | Out-Null
+        try {
+            $unsigned = Join-Path $tempRoot "unsigned_sample.ps1"
+            "Write-Output 'unsigned'" | Set-Content -Path $unsigned -Encoding UTF8
+
+            $cmd = "powershell -NoProfile -ExecutionPolicy Bypass -File `"$verifyScript`" -TargetPath `"$tempRoot`""
+            $output = cmd.exe /c $cmd 2>&1
+            $exitCode = $LASTEXITCODE
+
+            if ($exitCode -eq 0) {
+                throw "Verification should fail for unsigned script."
+            }
+
+            $joined = ($output | Out-String)
+            if ($joined -notmatch "INVALID_SIGNATURES") {
+                throw "Missing INVALID_SIGNATURES summary in output."
+            }
+            if ($joined -notmatch "unsigned_sample\.ps1") {
+                throw "Missing invalid file name in output."
+            }
+
+            return "Failure list output verified"
+        }
+        finally {
+            if (Test-Path $tempRoot) {
+                Remove-Item -Path $tempRoot -Recurse -Force -ErrorAction SilentlyContinue
+            }
+        }
+    }
+}
+
+class SignatureVerificationEnforcementContractTest : BaseTest {
+    SignatureVerificationEnforcementContractTest() : base("Signature Verification Enforcement Contract", "EdgeCase-P0") {}
+
+    [string] Execute() {
+        $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot "..\..")).Path
+        $hookPath = Join-Path $repoRoot ".githooks\pre-commit"
+        $ciPath = Join-Path $repoRoot ".github\workflows\verify-signatures.yml"
+
+        $hookExists = Test-Path -Path $hookPath -PathType Leaf
+        $ciExists = Test-Path -Path $ciPath -PathType Leaf
+        if (-not $hookExists -and -not $ciExists) {
+            throw "Missing enforcement link: expected .githooks/pre-commit or .github/workflows/verify-signatures.yml"
+        }
+
+        if ($hookExists) {
+            $hookContent = Get-Content -Path $hookPath -Raw -Encoding UTF8
+            if ($hookContent -notmatch "Verify-Signatures\.ps1") {
+                throw "Hook exists but does not invoke Verify-Signatures.ps1"
+            }
+        }
+        if ($ciExists) {
+            $ciContent = Get-Content -Path $ciPath -Raw -Encoding UTF8
+            if ($ciContent -notmatch "Verify-Signatures\.ps1") {
+                throw "CI exists but does not invoke Verify-Signatures.ps1"
+            }
+        }
+
+        return "Enforcement contract verified"
+    }
+
 # SIG # Begin signature block
 # MIIFiwYJKoZIhvcNAQcCoIIFfDCCBXgCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUIdHY/V1L3SuuLO0MQcM0Rxqc
-# ENigggMcMIIDGDCCAgCgAwIBAgIQGWEUqQpfT6JPYbwYRk6SXjANBgkqhkiG9w0B
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUY8rD8BwvYR7NrSen3XjfSSkM
+# vZGgggMcMIIDGDCCAgCgAwIBAgIQGWEUqQpfT6JPYbwYRk6SXjANBgkqhkiG9w0B
 # AQsFADAkMSIwIAYDVQQDDBlDb2xsZWN0b3ItSW50ZXJuYWwtU2lnbmVyMB4XDTI2
 # MDIxMzE2MzExMloXDTI3MDIxMzE2NTExMlowJDEiMCAGA1UEAwwZQ29sbGVjdG9y
 # LUludGVybmFsLVNpZ25lcjCCASIwDQYJKoZIhvcNAQEBBQADggEPADCCAQoCggEB
@@ -577,11 +669,11 @@ class MainScriptInterruptContractTest : BaseTest {
 # JDEiMCAGA1UEAwwZQ29sbGVjdG9yLUludGVybmFsLVNpZ25lcgIQGWEUqQpfT6JP
 # YbwYRk6SXjAJBgUrDgMCGgUAoHgwGAYKKwYBBAGCNwIBDDEKMAigAoAAoQKAADAZ
 # BgkqhkiG9w0BCQMxDAYKKwYBBAGCNwIBBDAcBgorBgEEAYI3AgELMQ4wDAYKKwYB
-# BAGCNwIBFTAjBgkqhkiG9w0BCQQxFgQUDSwglXWzj48Mj0EOrSTvum463v8wDQYJ
-# KoZIhvcNAQEBBQAEggEAIpoLKB/qjjoW2Y0CxVHKsXpSsx9H7QApRdeEPgmXQAMR
-# JV17+kUagFWfkxwmOlxQHkpStRvSNwNxwYKukpB8/RXIokVXB38tkti7amsmkciV
-# gVInsye+/si6WmSjVczFNCFMi+7ks7D3Dr90CQaEqsu9+VoVhqAqQFdv4WvwIXe9
-# LlNpkeKDVXfHuFYNp3heWg/QUBIB7RAPald6ip+KkJeJ7E4W1uUpmUS9P0jQUTkw
-# kvhgbDSmjxmPdZ3BbOcinHy851t8MuKS59kxXFtOy43c+ornHqSufjvHv+PFd8GB
-# riPM9MPqD1x+A2LFX45I6P/otxXlrxyVx1bZN/4QKA==
+# BAGCNwIBFTAjBgkqhkiG9w0BCQQxFgQUX0WL/AO430ZBotIBWsnaG5DwDfswDQYJ
+# KoZIhvcNAQEBBQAEggEAA4ZWSzyofdiN19tE2MQ4QY5gh0ef3wPdayauPDqmMV4b
+# TivPjhw1Hm8e+ubj45filVnZlqNykRECUa6muxYp8kC5cujCxaZwrPLIQmdGLz7T
+# 8Q020DeUTSAXIMQ3lWktd2kT973YU/smNMvUxWFXUVHqL8tM16+fwBJXHMG9MWSe
+# KgZfh4WqcsoMdW8lMyS4k6a+wdPiUKoOfTbTcf5bxKv2x862f+mII60xMAROuEeY
+# SWd5WpKiJGwtOJeyGjVENNIOZp/lOpScEHzCzET2HgnZTAA6lhZSZZVv26/1ITgM
+# E3uH+Cd2LXgf5hzVsy6hDtibE5Ajsiw4ApoK7zK8MQ==
 # SIG # End signature block

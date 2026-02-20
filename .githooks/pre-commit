@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+repo_root="$(git rev-parse --show-toplevel)"
+
+powershell -NoProfile -ExecutionPolicy Bypass \
+  -File "$repo_root/utils/Verify-Signatures.ps1" \
+  -TargetPath "$repo_root" \
+  -StagedOnly
+
